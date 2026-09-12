@@ -1,0 +1,18 @@
+{
+  "title.lane": "LANE",
+  "title.split": "SPLIT",
+  "title.rush": "RUSH",
+  "ui.play": "Play",
+  "ui.settings": "SETTINGS",
+  "ui.close": "Close",
+  "ui.done": "DONE",
+  "settings.kicker": "MAKE IT YOUR RIDE",
+  "settings.reduceMotion": "REDUCE MOTION",
+  "settings.motionDetail": "Reduce interface animation.",
+  "preview.kicker": "THE STARTING LINE",
+  "preview.title": "MORE RUSH IS ON THE WAY.",
+  "preview.detail": "This preview includes the title screen. The ride, scoring, and traffic are coming in the next development stage.",
+  "preview.back": "BACK TO TITLE",
+  "ui.highScore": "HighScore",
+  "ui.option": "option"
+}

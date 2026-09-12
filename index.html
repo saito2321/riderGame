@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#102c30">
+  <title>Lane Split Rush</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./src/styles.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <main class="game-shell">
+    <section class="title-screen" aria-labelledby="game-title">
+      <h1 id="game-title"><span data-i18n="title.lane">LANE</span> <span data-i18n="title.split">SPLIT</span><span class="rush" data-i18n="title.rush">RUSH</span></h1>
+      <div class="high-score"><span data-i18n="ui.highScore">HighScore</span><strong id="high-score">0</strong></div>
+      <div class="actions">
+        <button class="play-button" id="play" data-i18n="ui.play">Play</button>
+        <button class="option-button" id="settings" data-i18n="ui.option">option</button>
+      </div>
+    </section>
+  </main>
+  <dialog id="modal" aria-labelledby="modal-title"><div class="modal-top"><span class="eyebrow" id="modal-kicker"></span><button id="close-modal" class="icon-button" aria-label="Close">×</button></div><h2 id="modal-title"></h2><div id="modal-content"></div><button class="play-button modal-action" id="modal-action"></button></dialog>
+  <p class="load-error" id="load-error" hidden>Unable to load. Start the local server, then refresh this page.</p>
+</body>
+</html>
