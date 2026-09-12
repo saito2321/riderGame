@@ -43,8 +43,10 @@ function vehicle(type, color) {
   }
   const wheels=[];
   for(const x of [-w*.49,w*.49]) for(const z of [-d*.31,d*.31]) wheels.push(wheel(g,x,.45,z,.43,.2));
+  const brakeLamps=[];
   for(const x of [-w*.3,w*.3]) {
-    const tail = box(g,'#ff7762',x,.85,d*.505,w*.19,.17,.06); tail.material=material('#ff6655',true);
+    box(g,'#8f3f37',x,.85,d*.505,w*.19,.17,.06);
+    const brakeLamp=box(g,'#ff3025',x,.85,d*.517,w*.24,.22,.035); brakeLamp.material=material('#ff3025',true); brakeLamp.visible=false; brakeLamps.push(brakeLamp);
     const head = box(g,'#fff4bd',x,.85,-d*.505,w*.22,.18,.06); head.material=material('#fff4bd',true);
   }
   const lamps=[];
@@ -55,7 +57,7 @@ function vehicle(type, color) {
   const shaft=box(arrow,'#fff0ad',0,0,0,.8,.11,.14); shaft.material=material('#fff0ad',true);
   for(const sign of [-1,1]) { const tip=box(arrow,'#fff0ad',.35,sign*.15,0,.45,.11,.14); tip.rotation.z=sign*-Math.PI/4; tip.material=material('#fff0ad',true); }
   arrow.position.set(0,h+.65,d*.1); arrow.visible=false; g.add(arrow);
-  g.userData={lamps,arrow,wheels}; return g;
+  g.userData={lamps,brakeLamps,arrow,wheels}; return g;
 }
 function makeBike() {
   const root = new THREE.Group(), g = new THREE.Group();
@@ -154,8 +156,8 @@ export class World {
     this.blocks.forEach((b,i)=>{b.position.z=((24-i*12+sim.distance+180)%216)-180;});
     this.bike.position.x=sim.x;
     const damage=this.bike.userData;
-    damage.paint.material=material(sim.health===3?'#d6ef7c':sim.health===2?'#aeb773':'#7d8870');
-    damage.scratches.visible=sim.health<3;damage.frontLight.visible=sim.health>1;
+    damage.paint.material=material(sim.health===C.health?'#d6ef7c':'#7d8870');
+    damage.scratches.visible=sim.health<C.health;damage.frontLight.visible=sim.health>1;
     damage.tail.rotation.z=sim.health<2?.18:0;
     // Render the fixed-step movement pose; damage never adds an idle body wobble.
     damage.visual.rotation.z=sim.dead?-.8:sim.bank*(settings.reduceMotion?C.reducedBikeLean:C.bikeLean);
@@ -170,6 +172,7 @@ export class World {
       const g=variants[v.type];g.position.set(v.x,0,v.z);
       const blink=Math.floor(v.changeTime/.25)%2===0;
       for(const {dir,lamp} of g.userData.lamps)lamp.visible=v.direction===dir&&blink;
+      for(const lamp of g.userData.brakeLamps)lamp.visible=v.braking;
       g.userData.arrow.visible=v.direction!==0;g.userData.arrow.rotation.z=v.direction===-1?Math.PI:0;
     }
     this.smokeClock+=dt;

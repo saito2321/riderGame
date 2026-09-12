@@ -1,11 +1,13 @@
 export const CONFIG = Object.freeze({
   step: 1 / 120, roadWidth: 10.5, laneWidth: 3.5, bikeWidth: .6, bikeLength: 2,
-  edge: 4.8, steeringSpeed: 6, smoothing: .12, sensitivity: 1.15,
+  edge: 4.4, steeringSpeed: 6, smoothing: .12, sensitivity: 1.15,
   bikeLean: .56, reducedBikeLean: .28, leanInTime: .035, leanOutTime: .065,
   leanSpeedDeadzone: .08, minimumMovingBank: .55,
-  health: 3, invincible: 1.25, reviveInvincible: 2, vehicleSpeed: 12,
+  health: 2, invincible: 1.25, reviveInvincible: 2, vehicleSpeed: 12,
   baseSpeed: 22, maxBaseSpeed: 36, maxSpeed: 44, distanceStep: 500,
   comboTime: 3, maxTurbo: 8, spawnZ: -155, poolSize: 18,
+  brakeStartScore: 5000, brakeInterval: 3, brakeChance: .4, brakeDuration: 1.5,
+  brakingSpeed: 6, brakeDeceleration: 12, vehicleAcceleration: 6,
 });
 export const VEHICLES = Object.freeze({
   car: { width: 1.8, length: 4.5, height: 1.5 },

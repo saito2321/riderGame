@@ -112,7 +112,7 @@ function showSettings(){
 }
 function openError(title,detail){openModal(title);$('#modal-content').append(element('p',t(detail),'modal-copy'));$('#modal-action').textContent=t('error.reload');$('#modal-action').onclick=()=>location.reload();}
 function updateHUD(){
-  $('#health').textContent=Array.from({length:3},(_,i)=>i<sim.health?'♥':'♡').join(' ');$('#health').ariaLabel=`${t('hud.health')} ${sim.health} / 3`;
+  $('#health').textContent=sim.health>1?'♥':'';$('#health').ariaLabel=`${t('hud.health')} ${sim.health} / ${C.health}`;
   $('#score').textContent=number(sim.score);$('#hud-best').textContent=`${t('hud.best')} ${number(save.bestScore)}`;
   $('#combo').textContent=sim.combo?`×${sim.combo}`:'—';$('#multiplier').textContent=`×${multiplier(sim.combo).toFixed(1)}`;
   $('#combo-timer').style.transform=`scaleX(${sim.combo?clamp(1-(sim.time-sim.lastNear)/3,0,1):0})`;

@@ -26,6 +26,25 @@ test('release returns to exactly upright without overshoot or recurring idle wob
 test('held input at road edge straightens instead of keeping a stationary bike leaned',()=>{
   const sim=ride();sim.x=C.edge;step(sim,120,{axis:1,target:C.edge});assert.equal(sim.bank,0);
 });
+
+test('drag settling returns through the minimum bank without pausing in either direction',()=>{
+  for(const axis of [-1,1]){
+    const sim=ride();step(sim,24,{axis,target:0});
+    assert.ok(Math.abs(sim.bank)>.99);
+    const input={axis:0,target:sim.x+axis*.65};
+    let previous=Math.abs(sim.bank),crossedMinimum=false;
+    for(let i=0;i<120;i++){
+      const oldX=sim.x;sim.step(C.step,input);
+      const speed=Math.abs((sim.x-oldX)/C.step),bank=Math.abs(sim.bank);
+      assert.ok(bank<=previous+1e-12,'return must remain monotonic');
+      assert.ok(sim.bank*axis<=0,'return must not overshoot');
+      if(speed>C.leanSpeedDeadzone && bank<C.minimumMovingBank*.75)crossedMinimum=true;
+      previous=bank;
+    }
+    assert.ok(crossedMinimum,'bank must pass below the old plateau while still decelerating');
+    assert.equal(sim.bank,0);
+  }
+});
 test('micro drift is ignored and hit stop freezes the pose',()=>{
   assert.equal(updateBikeBank(0,.01,C.step),0);assert.equal(updateBikeBank(0,-.01,C.step),0);
   const sim=ride();step(sim,12,{axis:-1,target:0});const bank=sim.bank;sim.hitStop=.15;step(sim,10,{axis:1,target:0});assert.equal(sim.bank,bank);

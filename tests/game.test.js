@@ -15,6 +15,19 @@ function pass(type,gap,{speed=22,invincible=false}={}){
 test('continuous overlap detects a crossing even if endpoints are outside',()=>{
   assert.deepEqual(interval(-3,3,-1,1),[1/3,2/3]);assert.equal(interval(2,2,-1,1),null);
 });
+test('outer movement limits cannot bypass traffic with keyboard or drag input',()=>{
+  for(const side of [-1,1])for(const keyboard of [false,true])for(const type of Object.keys(VEHICLES)){
+    const s=empty();s.x=side*C.edge;
+    s.spawnVehicle(type,side*C.laneWidth,-8);
+    const input={axis:keyboard?side:0,target:side*100};
+    for(let i=0;i<180;i++){
+      s.step(C.step,input);
+      assert.ok(Math.abs(s.x)<=C.edge,'input must stay inside the movement limits');
+    }
+    assert.ok(s.health<C.health,`${type} must hit at the ${side<0?'left':'right'} limit with ${keyboard?'keyboard':'drag'} input`);
+  }
+});
+
 test('steering has common 6 m/s cap and respects both road boundaries',()=>{
   close(steer(0,4.8,C.step),.05);close(steer(0,1,C.step,true),.05);
   let x=0;for(let i=0;i<300;i++)x=steer(x,1,C.step,true);close(x,C.edge);
@@ -31,7 +44,7 @@ test('gap boundaries and max-speed complete passes remain correct',()=>{
   for(const type of Object.keys(VEHICLES)){
     const {s}=pass(type,.6,{speed:36});assert.equal(s.nearMisses,1);
     const outside=pass(type,.601);assert.equal(outside.s.nearMisses,0);
-    const contact=pass(type,0,{invincible:true});assert.equal(contact.s.nearMisses,0);assert.equal(contact.s.health,3);
+    const contact=pass(type,0,{invincible:true});assert.equal(contact.s.nearMisses,0);assert.equal(contact.s.health,2);
     const fast=empty();fast.distance=14000;fast.baseSpeed=36;fast.combo=20;fast.lastNear=0;fast.turbo=8;fast.x=(VEHICLES[type].width+C.bikeWidth)/2+.3;
     fast.spawnVehicle(type,0,-8);advance(fast,1);assert.equal(fast.nearMisses,1);
   }
@@ -40,12 +53,12 @@ test('late entry, leaving/reentering zone, and invincible contact do not score',
   const late=empty();late.x=1.5;late.spawnVehicle('car',0,-1);advance(late,1);assert.equal(late.nearMisses,0);
   const leave=empty();leave.x=1.5;const v=leave.spawnVehicle('bus',0,-7);advance(leave,.15);advance(leave,.4,4);advance(leave,1,1.5);assert.equal(leave.nearMisses,0);assert.ok(v.disqualified);
 });
-test('one collision costs one health; death freezes scoring; revive works only once',()=>{
-  const s=empty();s.spawnVehicle('car',0,-3.3);advance(s,.5);assert.equal(s.health,2);assert.ok(s.invincible>0);
-  s.invincible=0;s.hitStop=0;s.health=1;s.spawnVehicle('car',0,-3.3);advance(s,.5);assert.ok(s.dead);assert.equal(s.health,0);
+test('two collisions end the ride; death freezes scoring; revive works only once',()=>{
+  const s=empty();assert.equal(s.health,2);const hitCar=s.spawnVehicle('car',0,-3.3);advance(s,.5);assert.equal(s.health,1);assert.equal(s.dead,false);assert.ok(s.invincible>0);assert.equal(hitCar.active,true);
+  s.invincible=0;s.hitStop=0;s.spawnVehicle('car',0,-3.3);advance(s,.5);assert.ok(s.dead);assert.equal(s.health,0);
   const score=s.score,distance=s.distance;advance(s,5);assert.equal(s.score,score);assert.equal(s.distance,distance);
   assert.ok(s.revive());assert.equal(s.health,1);assert.equal(s.score,score);assert.equal(s.combo,0);assert.equal(s.turbo,0);assert.equal(s.invincible,2);
-  s.dead=true;assert.equal(s.revive(),false);s.reset(12);assert.equal(s.revived,false);assert.equal(s.health,3);assert.equal(s.score,0);
+  s.dead=true;assert.equal(s.revive(),false);s.reset(12);assert.equal(s.revived,false);assert.equal(s.health,2);assert.equal(s.score,0);
 });
 test('combo uses new count for points and expires only after 3 seconds',()=>{
   assert.equal(multiplier(2),1);assert.equal(multiplier(3),1.5);assert.equal(multiplier(6),2);assert.equal(multiplier(20),4);
@@ -73,6 +86,15 @@ test('lane-change recheck cancels occupied destination and reuse clears indicato
   const s=empty();const car=s.spawnVehicle('car',0,-80);Object.assign(car,{change:'signaling',direction:1,toX:3.5,fromX:0,warning:1.25,changeTime:1.24,changeUsed:true});
   s.spawnVehicle('bus',3.5,-80);s.updateVehicle(car,.02);assert.equal(car.change,'straight');assert.equal(car.direction,0);
   car.active=false;const reused=s.spawnVehicle('car',0,-100);assert.equal(reused.changeUsed,false);assert.equal(reused.direction,0);assert.equal(reused.nearStarted,false);
+});
+test('random braking starts only at 5000 points, slows traffic, and resets on reuse',()=>{
+  const s=empty();const car=s.spawnVehicle('car',0,-80);s.random=()=>0;
+  s.score=C.brakeStartScore-1;s.scheduleBrake(C.brakeInterval);assert.equal(car.braking,false);
+  s.score=C.brakeStartScore;s.scheduleBrake(C.brakeInterval);assert.equal(car.braking,true);assert.equal(car.brakeUsed,true);
+  s.updateVehicle(car,.5);assert.equal(car.trafficSpeed,C.brakingSpeed);assert.equal(car.braking,true);
+  s.updateVehicle(car,C.brakeDuration);assert.equal(car.braking,false);
+  s.updateVehicle(car,1);assert.equal(car.trafficSpeed,C.vehicleSpeed);
+  car.active=false;const reused=s.spawnVehicle('bus',3.5,-100);assert.equal(reused.braking,false);assert.equal(reused.brakeUsed,false);assert.equal(reused.trafficSpeed,C.vehicleSpeed);
 });
 test('path check rejects blocked roads and waves never use every lane',()=>{
   const s=empty();for(const x of [-3.5,0,3.5])s.spawnVehicle('bus',x,-6);assert.equal(s.hasSafePath(),false);

@@ -15,11 +15,11 @@ export class Simulation {
   }
   reset(seed) {
     this.seed = seed >>> 0; this.random = randomGenerator(this.seed); this.nextId = 1;
-    this.x = 0; this.bank = 0; this.time = 0; this.distance = 0; this.score = 0; this.health = C.health;
+    this.x = 0; this.bank = 0; this.bankLateralSpeed = 0; this.time = 0; this.distance = 0; this.score = 0; this.health = C.health;
     this.combo = 0; this.bestCombo = 0; this.nearMisses = 0; this.lastNear = -Infinity;
     this.baseSpeed = C.baseSpeed; this.speed = C.baseSpeed; this.turbo = 0;
     this.turboRate = 0; this.turboRiseRate = 2; this.invincible = 0; this.crashRecovery = 0; this.hitStop = 0;
-    this.dead = false; this.revived = false; this.spawnTravel = 0; this.laneTimer = 0;
+    this.dead = false; this.revived = false; this.spawnTravel = 0; this.laneTimer = 0; this.brakeTimer = 0;
     this.events = []; this.speedLevel = 0;
     for (const v of this.vehicles) v.active = false;
     this.spawnVehicle('car', -3.5, -60);
@@ -31,7 +31,8 @@ export class Simulation {
     if (!v) return null;
     Object.assign(v, VEHICLES[type], { type, id: this.nextId++, active: true, x, z, oldX: x, oldZ: z,
       nearStarted: false, disqualified: false, scored: false, minGap: Infinity, side: 0,
-      change: 'straight', changeUsed: false, changeTime: 0, warning: 0, direction: 0, fromX: x, toX: x });
+      change: 'straight', changeUsed: false, changeTime: 0, warning: 0, direction: 0, fromX: x, toX: x,
+      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed });
     return v;
   }
   breakCombo(immediate = false) { this.combo = 0; this.turboRate = this.turbo; if (immediate) this.turbo = 0; }
@@ -42,22 +43,24 @@ export class Simulation {
   }
   revive() {
     if (!this.dead || this.revived) return false;
-    this.revived = true; this.bank = 0; this.dead = false; this.health = 1; this.hitStop = 0;
+    this.revived = true; this.bank = 0; this.bankLateralSpeed = 0; this.dead = false; this.health = 1; this.hitStop = 0;
     this.invincible = C.reviveInvincible; this.crashRecovery = 0; this.breakCombo(true); this.safeZone(); return true;
   }
   // Reserve the full swept width of lane changes. Verify an actual smoothed steering
-  // trajectory after 1s reaction, against the envelope of relative speeds 5.6..32 m/s.
+  // trajectory after 1s reaction, against the full envelope of relative speeds.
   // Conservative acceptance can reject a playable wave; rejection means less traffic.
   hasSafePath(extra = []) {
     const obstacles = [...this.vehicles.filter(v => v.active), ...extra];
-    const horizon = Math.max(6, ...obstacles.map(v => (-v.z + (v.length + C.bikeLength) / 2) / 5.6));
-    for (const target of [-4.7, -3.5, -1.75, 0, 1.75, 3.5, 4.7]) {
+    const minClosingSpeed = C.baseSpeed * .8 - C.vehicleSpeed;
+    const maxClosingSpeed = C.maxSpeed - C.brakingSpeed;
+    const horizon = Math.max(6, ...obstacles.map(v => (-v.z + (v.length + C.bikeLength) / 2) / minClosingSpeed));
+    for (const target of [-C.edge, -3.5, -1.75, 0, 1.75, 3.5, C.edge]) {
       let x = this.x, safe = true;
       for (let t = .05; t <= horizon && safe; t += .05) {
         const oldX = x; if (t > 1) x = steer(x, target, .05);
         for (const v of obstacles) {
           const halfZ = (v.length + C.bikeLength) / 2;
-          if (v.z + 32 * t < -halfZ || v.z + 5.6 * (t - .05) > halfZ) continue;
+          if (v.z + maxClosingSpeed * t < -halfZ || v.z + minClosingSpeed * (t - .05) > halfZ) continue;
           const halfX = (v.width + C.bikeWidth) / 2 + .15;
           const min = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x) - halfX;
           const max = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x) + halfX;
@@ -106,6 +109,15 @@ export class Simulation {
       }
     }
   }
+  scheduleBrake(dt) {
+    if (this.score < C.brakeStartScore) return;
+    this.brakeTimer += dt; if (this.brakeTimer < C.brakeInterval) return; this.brakeTimer = 0;
+    if (this.random() >= C.brakeChance) return;
+    const candidates = this.vehicles.filter(v => v.active && !v.brakeUsed && v.change === 'straight' && v.z < -30 && v.z > -105);
+    if (!candidates.length) return;
+    const v = candidates[Math.floor(this.random() * candidates.length)];
+    v.braking = true; v.brakeUsed = true; v.brakeTime = C.brakeDuration;
+  }
   updateVehicle(v, dt) {
     v.oldX = v.x; v.oldZ = v.z;
     if (v.change !== 'straight') {
@@ -119,7 +131,12 @@ export class Simulation {
         if (v.changeTime >= 2) { v.change = 'straight'; v.direction = 0; v.x = v.toX; }
       }
     }
-    v.z += (this.speed - C.vehicleSpeed) * dt;
+    if (v.braking) {
+      v.brakeTime = Math.max(0, v.brakeTime - dt);
+      v.trafficSpeed = moveToward(v.trafficSpeed, C.brakingSpeed, C.brakeDeceleration * dt);
+      if (v.brakeTime === 0) v.braking = false;
+    } else v.trafficSpeed = moveToward(v.trafficSpeed, C.vehicleSpeed, C.vehicleAcceleration * dt);
+    v.z += (this.speed - v.trafficSpeed) * dt;
   }
   step(dt, input = { target: this.x, axis: 0 }) {
     this.events.length = 0;
@@ -138,9 +155,12 @@ export class Simulation {
     this.distance += traveled; this.score = Math.min(Number.MAX_SAFE_INTEGER, this.score + traveled);
     const oldX = this.x;
     this.x = steer(this.x, input.axis ? input.axis : input.target, dt, Boolean(input.axis));
-    this.bank = updateBikeBank(this.bank, (this.x - oldX) / dt, dt);
+    const lateralSpeed = (this.x - oldX) / dt;
+    this.bank = updateBikeBank(this.bank, lateralSpeed, dt, this.bankLateralSpeed);
+    this.bankLateralSpeed = lateralSpeed;
     if (input.axis) input.target = this.x;
     this.scheduleChange(dt);
+    this.scheduleBrake(dt);
     const contacts = [];
     for (const v of this.vehicles) {
       if (!v.active) continue;
@@ -173,7 +193,6 @@ export class Simulation {
           const unused = traveled * (1 - event.at); this.distance -= unused; this.score -= unused; this.time = startTime + event.at * dt;
           this.dead = true; this.bank = 0; this.breakCombo(true); this.events.push({ type: 'dead' });
         }
-        else this.safeZone();
       } else {
         const at = startTime + event.at * dt;
         if (at - this.lastNear > C.comboTime + 1e-9) this.combo = 0;
