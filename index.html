@@ -19,6 +19,19 @@
         <button class="option-button" id="settings" data-i18n="ui.option">option</button>
       </div>
     </section>
+    <section id="game-stage" aria-label="Game" hidden>
+      <canvas id="game-canvas" aria-label="Swipe left and right to steer" tabindex="0"></canvas>
+      <div class="hud" id="hud">
+        <div class="health-block"><span data-i18n="hud.health"></span><strong id="health"></strong></div>
+        <div class="score-block"><span data-i18n="hud.score"></span><strong id="score">0</strong><small id="hud-best"></small></div>
+        <div class="combo-block"><span data-i18n="hud.combo"></span><strong id="combo">0</strong><small id="multiplier">×1.0</small><div class="combo-track"><i id="combo-timer"></i></div></div>
+      </div>
+      <div id="turbo-label"></div>
+      <div id="toast" role="status" aria-live="polite"></div>
+      <div class="bottom-hud"><button id="pause-button" class="pause-button" data-i18n="ui.pause"></button><div class="speed-readout"><strong id="speed">0</strong><span>km/h</span><small id="distance">0 m</small></div></div>
+      <div id="game-overlay" hidden></div>
+      <div id="impact" aria-hidden="true"></div>
+    </section>
   </main>
   <dialog id="modal" aria-labelledby="modal-title"><div class="modal-top"><span class="eyebrow" id="modal-kicker"></span><button id="close-modal" class="icon-button" aria-label="Close">×</button></div><h2 id="modal-title"></h2><div id="modal-content"></div><button class="play-button modal-action" id="modal-action"></button></dialog>
   <p class="load-error" id="load-error" hidden>Unable to load. Start the local server, then refresh this page.</p>
