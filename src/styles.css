@@ -28,6 +28,7 @@ dialog{width:min(480px,calc(100% - 32px));max-height:calc(100svh - 32px);overflo
 .game-shell.in-game{padding:0;height:100dvh;min-height:0;position:relative;overflow:hidden;background:#bcd8cb}
 #game-stage{position:relative;width:100%;height:100%;overflow:hidden;isolation:isolate}
 #game-canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+#game-stage{background:#9eaeba}
 .hud{position:absolute;z-index:2;top:max(18px,env(safe-area-inset-top));left:14px;right:14px;display:grid;grid-template-columns:1fr 1.2fr 1fr;grid-template-areas:"health score pause" "combo score .";align-items:start;gap:12px 6px;pointer-events:none;color:#183b3c}
 .hud>div{display:flex;flex-direction:column;gap:5px}.hud span{font-size:9px;font-weight:800;letter-spacing:1.3px}.hud strong{font-size:26px;line-height:1;font-variant-numeric:tabular-nums}.hud small{font-size:10px;font-weight:700;letter-spacing:.6px}.health-block{grid-area:health}.score-block{grid-area:score;text-align:center}.combo-block{grid-area:combo;text-align:left;align-items:flex-start}.hud>.pause-button{grid-area:pause;justify-self:end}.health-block strong{min-height:1em;font-size:23px;letter-spacing:-2px;white-space:nowrap;color:#315e49}
 .combo-track{width:64px;height:3px;background:#66887e44;border-radius:3px;overflow:hidden}.combo-track i{display:block;width:100%;height:100%;background:#315e49;transform-origin:left}
@@ -45,4 +46,8 @@ dialog{width:min(480px,calc(100% - 32px));max-height:calc(100svh - 32px);overflo
 #game-stage.turbo::before{content:'';position:absolute;z-index:1;inset:22% 0 0;pointer-events:none;background:repeating-linear-gradient(105deg,transparent 0 70px,#c6faff66 71px 73px,transparent 74px 150px);mask-image:linear-gradient(90deg,#000,transparent 12%,transparent 88%,#000);animation:rush-lines .6s linear infinite}
 @keyframes rush-lines{to{background-position:0 150px}}
 .reduce-motion #game-stage.turbo::before{display:none}
+.hud{color:#f2f5f6;text-shadow:0 1px 4px #07151f}
+.hud::before{content:'';position:absolute;z-index:-1;inset:-24px -14px -22px;background:linear-gradient(#101e2cd9,#101e2c66 65%,transparent);pointer-events:none}
+.health-block strong{color:#d6ef7c}.combo-track{background:#cad5df55}.combo-track i{background:#d6ef7c}
+#turbo-label{color:#d6f4fa;text-shadow:0 1px 3px #102635}
 @media(prefers-reduced-motion:reduce){#game-stage.turbo::before,#game-stage.turbo::after{display:none}}
