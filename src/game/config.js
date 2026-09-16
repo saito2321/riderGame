@@ -6,9 +6,12 @@ export const CONFIG = Object.freeze({
   health: 2, invincible: 1.25, reviveInvincible: 2, vehicleSpeed: 12,
   baseSpeed: 22, maxBaseSpeed: 36, maxSpeed: 44, distanceStep: 500,
   comboTime: 3, maxTurbo: 8, spawnZ: -155, poolSize: 18,
+  trafficDensity: 1,
   brakeStartScore: 5000, brakeInterval: 3, brakeChance: .4, brakeDuration: 1.5,
+  gapPassThreshold: 3, gapHalfWidth: .5, gapSpawnDistance: 45, gapReactionSeconds: 2.5,
   brakingSpeed: 6, brakeDeceleration: 12, vehicleAcceleration: 6,
 });
+export const TRAFFIC_BIKE = Object.freeze({ width: .72, length: 2.25, height: 2.1 });
 export const VEHICLES = Object.freeze({
   car: { width: 1.8, length: 4.5, height: 1.5 },
   truck: { width: 2.4, length: 8, height: 3.2 },
@@ -21,9 +24,12 @@ export function steer(x, target, dt, keyboard = false) {
 }
 export const multiplier = combo => combo >= 20 ? 4 : combo >= 10 ? 3 : combo >= 6 ? 2 : combo >= 3 ? 1.5 : 1;
 export const warningSeconds = score => Math.max(1.25, 2.5 - Math.max(0, Math.floor((score - 10000) / 5000)) * .25);
-export const nearPoints = gap => gap <= .18 + 1e-9 ? 350 : gap <= .35 + 1e-9 ? 200 : 100;
+export const nearPoints = gap => gap <= .18 + 1e-9 ? 300 : 100;
 export const smoothstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 export function randomGenerator(seed) {
   let state = seed >>> 0;
   return () => { state += 0x6D2B79F5; let t = state; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
+
+// Highest lane-change difficulty matches the shortest warning at score 35,000.
+export const signalEvery = score => Math.max(3, 10 - Math.floor(Math.max(0, score) / 5000));

@@ -133,7 +133,7 @@ function frame(timestamp){
     while(accumulator>=C.step){
       sim.step(C.step,input);accumulator-=C.step;
       for(const event of sim.events){
-        if(event.type==='near'){showToast(`${t(event.tier===350?'hud.insane':event.tier===200?'hud.veryClose':'hud.near')} +${event.points}`);audio.effect('near');}
+        if(event.type==='near'){showToast(`${t(event.tier===300?'hud.veryClose':'hud.near')} +${event.points}`);audio.effect('near');}
         if(event.type==='speed')showToast(t('hud.speedUp'));
         if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(save.settings.haptics&&navigator.vibrate)navigator.vibrate(60);}
         if(event.type==='dead'){saveNow();state='result';setActive();audio.pause();renderPanel();break;}

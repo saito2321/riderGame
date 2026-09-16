@@ -34,13 +34,13 @@ test('steering has common 6 m/s cap and respects both road boundaries',()=>{
   for(let i=0;i<600;i++)x=steer(x,-1,C.step,true);close(x,-C.edge);
 });
 test('full passes score once for all vehicle sizes, sides and tiers',()=>{
-  for(const type of Object.keys(VEHICLES))for(const [gap,points] of [[.1,350],[.25,200],[.5,100]]){
+  for(const type of Object.keys(VEHICLES))for(const [gap,points] of [[.1,300],[.18,300],[.18001,100],[.25,100],[.5,100]]){
     const {s,v}=pass(type,gap);assert.equal(s.nearMisses,1,`${type}/${gap}`);close(s.score-s.distance,points);assert.ok(v.scored);advance(s,2);assert.equal(s.nearMisses,1);
     const left=empty();left.x=-(VEHICLES[type].width+C.bikeWidth)/2-gap;left.spawnVehicle(type,0,-7);advance(left,2);assert.equal(left.nearMisses,1);
   }
 });
 test('gap boundaries and max-speed complete passes remain correct',()=>{
-  assert.equal(nearPoints(.18),350);assert.equal(nearPoints(.35),200);
+  assert.equal(nearPoints(.18),300);assert.equal(nearPoints(.18001),100);assert.equal(nearPoints(.35),100);
   for(const type of Object.keys(VEHICLES)){
     const {s}=pass(type,.6,{speed:36});assert.equal(s.nearMisses,1);
     const outside=pass(type,.601);assert.equal(outside.s.nearMisses,0);
@@ -63,7 +63,7 @@ test('two collisions end the ride; death freezes scoring; revive works only once
 test('combo uses new count for points and expires only after 3 seconds',()=>{
   assert.equal(multiplier(2),1);assert.equal(multiplier(3),1.5);assert.equal(multiplier(6),2);assert.equal(multiplier(20),4);
   const s=empty();s.combo=2;s.lastNear=0;s.x=1.5;const v=s.spawnVehicle('car',0,3.249);v.nearStarted=true;v.side=1;v.minGap=.3;
-  s.step(C.step);assert.equal(s.combo,3);close(s.score-s.distance,300);
+  s.step(C.step);assert.equal(s.combo,3);close(s.score-s.distance,150);
   s.lastNear=s.time-3+C.step;s.step(C.step);assert.equal(s.combo,3);s.step(C.step);assert.equal(s.combo,0);
 });
 test('simultaneous passes are ordered independently of vehicle pool order',()=>{
@@ -78,14 +78,33 @@ test('speed follows distance, reaches cap, and turbo decays in 1 second',()=>{
 });
 test('lane-change warnings use the per-run score and stop at the lower bound',()=>{
   assert.equal(warningSeconds(10000),2.5);assert.equal(warningSeconds(15000),2.25);assert.equal(warningSeconds(35000),1.25);assert.equal(warningSeconds(999999),1.25);
-  const s=empty();s.random=()=>0;const v=s.spawnVehicle('car',0,-80);s.score=499;s.scheduleChange(4);assert.equal(v.change,'straight');
-  s.score=500;s.scheduleChange(4);assert.equal(v.change,'signaling');assert.equal(v.warning,2.5);assert.equal(v.x,0);
+  const s=empty();s.random=()=>0;const v=s.spawnVehicle('car',0,-106);Object.assign(v,{change:'queued',plannedDirection:1,toX:3.5});s.score=499;s.scheduleChange(4);assert.equal(v.change,'queued');
+  v.z=-105;s.score=500;s.scheduleChange(4);assert.equal(v.change,'signaling');assert.equal(v.warning,2.5);assert.equal(v.x,0);
   s.score=50000;s.updateVehicle(v,1);assert.equal(v.warning,2.5);assert.equal(v.x,0);
 });
 test('lane-change recheck cancels occupied destination and reuse clears indicators',()=>{
   const s=empty();const car=s.spawnVehicle('car',0,-80);Object.assign(car,{change:'signaling',direction:1,toX:3.5,fromX:0,warning:1.25,changeTime:1.24,changeUsed:true});
   s.spawnVehicle('bus',3.5,-80);s.updateVehicle(car,.02);assert.equal(car.change,'straight');assert.equal(car.direction,0);
   car.active=false;const reused=s.spawnVehicle('car',0,-100);assert.equal(reused.changeUsed,false);assert.equal(reused.direction,0);assert.equal(reused.nearStarted,false);
+});
+test('announced lane change completes after approaching during the warning',()=>{
+  for(const startZ of [-100,-80,-60])for(const playerX of [-3.5,0,3.5]){
+    const s=empty();s.random=()=>0;s.score=500;s.x=playerX;
+    const car=s.spawnVehicle('car',0,startZ);Object.assign(car,{change:'queued',plannedDirection:1,toX:3.5});s.scheduleChange(4);
+    assert.equal(car.change,'signaling');const destination=car.toX;
+    // Includes the reported case: from -80 m the old recheck cancels at -55 m,
+    // even with no other traffic and no player movement during the warning.
+    for(let i=0;i<299;i++)s.updateVehicle(car,C.step);
+    assert.equal(car.change,'signaling');close(car.x,0);
+    for(let i=0;i<243;i++)s.updateVehicle(car,C.step);
+    close(car.x,destination);assert.equal(car.change,'straight');assert.equal(car.direction,0);
+  }
+});
+test('lane-change reservation accounts for traffic braking before movement starts',()=>{
+  const s=empty();s.x=-3.5;const car=s.spawnVehicle('car',0,-80);
+  const braking=s.spawnVehicle('car',3.5,-110);braking.braking=true;
+  assert.equal(s.changeTrafficIsClear(car,3.5),true);
+  assert.equal(s.changeIsSafe(car,3.5),false);
 });
 test('random braking starts only at 5000 points, slows traffic, and resets on reuse',()=>{
   const s=empty();const car=s.spawnVehicle('car',0,-80);s.random=()=>0;

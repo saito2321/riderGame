@@ -3,6 +3,8 @@ import { CONFIG as C, VEHICLES } from './config.js';
 
 import { environment, roadMaterial, createCity, coachworkGeometry, batchParts } from './VisualAssets.js';
 
+import { createBike, createTrafficBike } from './BikeModel.js';
+
 const bodyGeometry=coachworkGeometry();
 const tireGeometry=new THREE.TorusGeometry(1,.24,6,20);
 const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -103,42 +105,6 @@ function vehicle(type, color) {
   batchParts(distant,new Set());g.add(distant);distant.visible=false;
   g.userData={lamps,brakeLamps,arrow,wheels,detail,distant}; return g;
 }
-function makeBike() {
-  const root = new THREE.Group(), g = new THREE.Group();
-  shadow(root,.85,2.3);
-  root.add(g);
-  const wheels=[wheel(g,0,.38,-.77,.38,.23),wheel(g,0,.38,.77,.38,.28)];
-  box(g,'#254049',0,.65,0,.27,.22,1.5);
-  const paint=panel(g,'#b5d548',0,.96,-.15,.53,.53,1.05); paint.rotation.x=-.12;
-  const tail=panel(g,'#b5d548',0,.93,.73,.51,.25,.51);
-  box(g,'#233b41',0,1.15,.34,.46,.15,.7);
-  const light=box(g,'#ff715f',0,1.04,.99,.34,.1,.06); light.material=material('#ff715f',true);
-  const frontLight=box(g,'#fff3b1',0,1.06,-.75,.27,.2,.1); frontLight.material=material('#fff3b1',true);
-  box(g,'#a3b3ab',0,1.32,-.63,.94,.06,.08);
-  const rider=panel(g,'#263847',0,1.56,.03,.6,.69,.42); rider.rotation.x=-.3;
-  box(g,'#aac47c',0,1.57,.28,.22,.4,.035);
-  for(const side of [-1,1]) {
-    const arm=box(g,'#23464f',side*.3,1.44,-.33,.15,.53,.16); arm.rotation.x=-.8;
-    const leg=box(g,'#20383f',side*.29,.95,.36,.19,.52,.33); leg.rotation.x=-.3;
-  }
-  const head=new THREE.Mesh(sphereGeometry,material('#edf0d9')); head.position.set(0,2.08,-.2); head.scale.set(.3,.32,.31); g.add(head);
-  box(g,'#254650',0,2.06,-.45,.47,.14,.12);
-  const exhaust=panel(g,'#9caab5',.33,.52,.72,.17,.18,.65);
-  for(const side of [-1,1]){
-    const fork=box(g,'#bec8cf',side*.14,.64,-.72,.055,.65,.06);fork.rotation.x=-.2;
-    const frame=box(g,'#5c6d79',side*.19,.65,.12,.055,.08,1.05);frame.rotation.x=-.25;
-    panel(g,'#4f606c',side*.2,.66,-.05,.13,.35,.5);
-    panel(g,'#22313d',side*.31,.73,.48,.22,.18,.43);
-    panel(g,'#566b79',side*.48,1.44,-.66,.17,.11,.08);
-    box(g,'#adbbc5',side*.38,1.38,-.63,.025,.19,.025);
-  }
-  const screen=panel(g,'#456273',0,1.36,-.66,.4,.33,.07);screen.rotation.x=-.3;
-  for(let i=0;i<4;i++)box(g,'#a5b3bb',0,.56+i*.055,-.02,.42,.021,.36);
-  const flame=new THREE.Mesh(new THREE.ConeGeometry(.14,.8,7),material('#9bf5ff',true)); flame.rotation.x=Math.PI/2; flame.position.set(.33,.52,1.35); g.add(flame); flame.visible=false;
-  const scratches=box(g,'#7c8174',.272,1.03,.07,.018,.035,.44); scratches.rotation.x=.35; scratches.visible=false;
-  batchParts(g,new Set([...wheels,paint,tail,frontLight,exhaust,flame,scratches]));
-  root.userData={wheels,paint,tail,frontLight,exhaust,flame,scratches,visual:g}; return root;
-}
 export class World {
   constructor(canvas) {
     this.lowPower=(navigator.hardwareConcurrency||4)<=4||(navigator.deviceMemory||8)<=4;
@@ -160,9 +126,11 @@ export class World {
     this.markings=new THREE.InstancedMesh(boxGeometry,material('#d9dbce'),48); this.scene.add(this.markings);
     this.matrix=new THREE.Object3D();
     this.city=createCity(this.scene,boxGeometry);
-    this.bike=makeBike(); this.scene.add(this.bike);
+    this.bike=createBike(shadow); this.scene.add(this.bike);
+    // Clone only once at startup; traffic motorcycles share all geometry/materials.
+    const trafficBike=createTrafficBike(shadow);
     this.traffic=Array.from({length:C.poolSize},(_,slot)=>{
-      const variants={}; for(const type of Object.keys(VEHICLES)) { const g=vehicle(type,['#aebbc8','#802f42','#35657d','#d2a448','#38464f'][slot%5]); g.visible=false; this.scene.add(g); variants[type]=g; } return variants;
+      const variants={}; for(const type of Object.keys(VEHICLES)) { const g=vehicle(type,['#aebbc8','#802f42','#35657d','#d2a448','#38464f'][slot%5]); g.visible=false; this.scene.add(g); variants[type]=g; } const bike=trafficBike.clone(true);bike.visible=false;this.scene.add(bike);variants.bike=bike;return variants;
     });
     this.particles=Array.from({length:28},()=>{const mesh=new THREE.Mesh(sphereGeometry,material('#ffc369',true));mesh.visible=false;this.scene.add(mesh);return {mesh,life:0,vx:0,vy:0,vz:0};});
     this.effectTime=0; this.lastTime=0; this.lastDistance=0; this.smokeClock=0; this.pixelRatio=Math.min(devicePixelRatio,this.lowPower?1:1.5); this.slowFrames=0;
@@ -194,7 +162,7 @@ export class World {
     this.road.material.map.offset.y=-sim.distance*16/230;
     this.bike.position.x=sim.x;
     const damage=this.bike.userData;
-    damage.paint.material=material(sim.health===C.health?'#b5d548':'#7d8870');
+    damage.paint.material=sim.health===C.health?damage.healthyPaint:material('#7d8870');
     damage.scratches.visible=sim.health<C.health;damage.frontLight.visible=sim.health>1;
     damage.tail.rotation.z=sim.health<2?.18:0;
     // Render the fixed-step movement pose; damage never adds an idle body wobble.
@@ -208,6 +176,7 @@ export class World {
       for(const [type,g] of Object.entries(variants)) g.visible=v.active&&type===v.type;
       if(!v.active)continue;
       const g=variants[v.type];g.position.set(v.x,0,v.z);
+      if(v.type==='bike')continue;
       const detailed=v.z>-(this.lowPower?48:65);
       for(const part of g.userData.detail)part.visible=detailed;
       g.userData.distant.visible=!detailed;
