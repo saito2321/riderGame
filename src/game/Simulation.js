@@ -1,3 +1,4 @@
+import { CoinSystem } from './CoinSystem.js';
 import { updateBikeBank } from './BikeBank.js';
 import { CONFIG as C, VEHICLES, TRAFFIC_BIKE, steer, moveToward, multiplier, warningSeconds, signalEvery, nearPoints, smoothstep, randomGenerator } from './config.js';
 
@@ -21,6 +22,7 @@ export class Simulation {
     this.turboRate = 0; this.turboRiseRate = 2; this.invincible = 0; this.crashRecovery = 0; this.hitStop = 0;
     this.dead = false; this.revived = false; this.spawnTravel = 0; this.laneTimer = 0; this.brakeTimer = 0;
     this.gapSide = 0; this.gapPassCount = 0; this.gapRetry = 0;
+    if(this.coins)this.coins.reset(seed);else this.coins=new CoinSystem(seed);
     this.events = []; this.speedLevel = 0; this.unsignaledTraffic = 3;
     for (const v of this.vehicles) v.active = false;
     this.spawnVehicle('car', -3.5, -60);
@@ -38,6 +40,7 @@ export class Simulation {
   }
   breakCombo(immediate = false) { this.combo = 0; this.turboRate = this.turbo; if (immediate) this.turbo = 0; }
   safeZone() {
+    this.coins.clear();
     // Remove nearby hazards instead of teleporting them across the player's path.
     for (const v of this.vehicles) if (v.active && (v.z > -110 || v.change !== 'straight')) v.active = false;
     this.spawnTravel = 0; this.gapSide = 0; this.gapPassCount = 0; this.gapRetry = 0;
@@ -283,5 +286,6 @@ export class Simulation {
     const spacing = (this.distance < 1000 ? 28 : this.distance < 3000 ? 36 : 44) / C.trafficDensity;
     if (this.spawnTravel >= spacing && !this.dead) { this.spawnTravel -= spacing; this.spawnWave(); }
     this.updateGapTraffic(dt);
+    if(!this.dead&&this.hitStop<=0)this.coins.update(this,dt,oldX);
   }
 }

@@ -124,6 +124,9 @@ export class World {
       box(this.scene,'#ccd0c9',side*5.02,.065,-70,.1,.015,230);
     }
     this.markings=new THREE.InstancedMesh(boxGeometry,material('#d9dbce'),48); this.scene.add(this.markings);
+    this.coinDiscs=new THREE.InstancedMesh(new THREE.CylinderGeometry(.32,.32,.085,16),new THREE.MeshStandardMaterial({color:'#ffc333',metalness:.65,roughness:.28,emissive:'#b57000',emissiveIntensity:.25}),30);
+    this.coinMarks=new THREE.InstancedMesh(boxGeometry,material('#fff0ae',true),30);
+    for(const coins of [this.coinDiscs,this.coinMarks]){coins.count=0;coins.frustumCulled=false;coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.scene.add(coins);}
     this.matrix=new THREE.Object3D();
     this.city=createCity(this.scene,boxGeometry);
     this.bike=createBike(shadow); this.scene.add(this.bike);
@@ -185,6 +188,14 @@ export class World {
       for(const lamp of g.userData.brakeLamps)lamp.visible=v.braking;
       g.userData.arrow.visible=v.direction!==0;g.userData.arrow.rotation.z=v.direction===-1?Math.PI:0;
     }
+    let coinIndex=0;
+    for(const coin of sim.coins.items)if(coin.active){
+      const angle=settings.reduceMotion?0:sim.time*1.8;
+      this.matrix.position.set(coin.x,.85,coin.z);this.matrix.rotation.set(Math.PI/2,angle,0,'YXZ');this.matrix.scale.set(1,1,1);this.matrix.updateMatrix();this.coinDiscs.setMatrixAt(coinIndex,this.matrix.matrix);
+      this.matrix.position.set(coin.x+Math.sin(angle)*.055,.85,coin.z+Math.cos(angle)*.055);this.matrix.rotation.set(0,angle,0);this.matrix.scale.set(.055,.35,.016);this.matrix.updateMatrix();this.coinMarks.setMatrixAt(coinIndex++,this.matrix.matrix);
+    }
+    for(const coins of [this.coinDiscs,this.coinMarks]){coins.count=coinIndex;coins.instanceMatrix.needsUpdate=true;}
+    this.matrix.rotation.set(0,0,0,'XYZ');
     this.smokeClock+=dt;
     if(sim.health===1&&!sim.dead&&this.smokeClock>.12) {
       this.smokeClock=0; const p=this.particles.find(p=>p.life<=0);
