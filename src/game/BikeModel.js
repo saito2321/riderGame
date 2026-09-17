@@ -55,7 +55,7 @@ function bikeWheel(parent,z,width){
 }
 
 export function createBike(shadow){
-  const root=new THREE.Group(),g=new THREE.Group();root.add(g);shadow(root,.8,2.3);
+  const root=new THREE.Group(),g=new THREE.Group();root.add(g);const groundShadow=shadow(root,.8,2.3);
   const wheels=[bikeWheel(g,-.76,.16),bikeWheel(g,.76,.21)];
   const tank=shell(g,paint,[[-.62,.99,.001,.001],[-.49,1.01,.17,.12],[-.28,1.04,.265,.19],[0,1.02,.24,.16],[.23,.99,.14,.085],[.3,.97,.001,.001]]);
   mesh(g,cylinder,metal,0,1.226,-.23,.052,.012,.052);
@@ -111,7 +111,7 @@ export function createBike(shadow){
   const flame=mesh(g,new THREE.ConeGeometry(.09,.65,7),new THREE.MeshBasicMaterial({color:'#9bf5ff'}),.32,.56,1.23);flame.rotation.x=Math.PI/2;flame.visible=false;
   const scratches=mesh(g,cube,metal,.253,1.03,-.22,.008,.019,.16);scratches.visible=false;
   batchParts(g,new Set([tank,tail,frontLight,exhaust,flame,scratches]));
-  root.userData={wheels,paint:tank,healthyPaint:paint,tail,frontLight,exhaust,flame,scratches,visual:g};return root;
+  root.userData={wheels,paint:tank,healthyPaint:paint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
 }
 
 

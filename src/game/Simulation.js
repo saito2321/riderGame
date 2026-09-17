@@ -19,6 +19,7 @@ export class Simulation {
     this.x = 0; this.bank = 0; this.bankLateralSpeed = 0; this.time = 0; this.distance = 0; this.score = 0; this.health = C.health;
     this.combo = 0; this.bestCombo = 0; this.nearMisses = 0; this.lastNear = -Infinity;
     this.baseSpeed = C.baseSpeed; this.speed = C.baseSpeed; this.turbo = 0;
+    this.jumpTime = 0; this.jumpDuration = 0; this.jumpVehicleId = null;
     this.turboRate = 0; this.turboRiseRate = 2; this.invincible = 0; this.crashRecovery = 0; this.hitStop = 0;
     this.dead = false; this.revived = false; this.spawnTravel = 0; this.laneTimer = 0; this.brakeTimer = 0;
     this.gapSide = 0; this.gapPassCount = 0; this.gapRetry = 0;
@@ -27,7 +28,7 @@ export class Simulation {
     for (const v of this.vehicles) v.active = false;
     this.spawnVehicle('car', -3.5, -60);
     this.spawnVehicle('car', 3.5, -92);
-    this.spawnVehicle('car', 0, -124);
+    this.spawnVehicle('rampTruck', 0, -124);
     this.coins.placeStartingCoins();
   }
   spawnVehicle(type, x, z) {
@@ -36,7 +37,7 @@ export class Simulation {
     Object.assign(v, type === 'bike' ? TRAFFIC_BIKE : VEHICLES[type], { type, id: this.nextId++, active: true, x, z, oldX: x, oldZ: z,
       gapPassSide: 0, nearStarted: false, disqualified: false, scored: false, minGap: Infinity, side: 0,
       change: 'straight', plannedDirection: 0, changeUsed: false, changeTime: 0, warning: 0, direction: 0, fromX: x, toX: x,
-      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed });
+      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed, rampUsed: false });
     return v;
   }
   breakCombo(immediate = false) { this.combo = 0; this.turboRate = this.turbo; if (immediate) this.turbo = 0; }
@@ -49,7 +50,7 @@ export class Simulation {
   revive() {
     if (!this.dead || this.revived) return false;
     this.revived = true; this.bank = 0; this.bankLateralSpeed = 0; this.dead = false; this.health = 1; this.hitStop = 0;
-    this.invincible = C.reviveInvincible; this.crashRecovery = 0; this.breakCombo(true); this.safeZone(); return true;
+    this.invincible = C.reviveInvincible; this.crashRecovery = 0; this.jumpTime = 0; this.jumpDuration = 0; this.jumpVehicleId = null; this.breakCombo(true); this.safeZone(); return true;
   }
   // Reserve the full swept width of lane changes. Verify an actual smoothed steering
   // trajectory after 1s reaction, against the full envelope of relative speeds.
@@ -122,7 +123,7 @@ export class Simulation {
       const timing = due ? this.laneChangeTiming() : null;
       const spawnZ = timing?.spawnZ ?? C.spawnZ;
       const r = this.random();
-      const type = due ? 'car' : this.distance >= 3000 && r < .18 ? 'bus' : this.distance >= 1000 && r < .4 ? 'truck' : 'car';
+      const type = due ? 'car' : this.distance >= 300 && r < .15 ? 'rampTruck' : this.distance >= 3000 && r < .18 ? 'bus' : this.distance >= 1000 && r < .4 ? 'truck' : 'car';
       let spawned = false;
       for (let option = 0; option < (due ? 3 : 1); option++) {
         const x = lanes[(first + i + option) % 3];
@@ -223,6 +224,7 @@ export class Simulation {
     const startTime = this.time; this.time += dt;
     this.invincible = Math.max(0, this.invincible - dt);
     this.crashRecovery = Math.max(0, this.crashRecovery - dt);
+    this.jumpTime = Math.max(0, this.jumpTime - dt);
     const turboTarget = Math.min(this.combo * .4, C.maxTurbo);
     this.turbo = moveToward(this.turbo, turboTarget, (turboTarget > this.turbo ? this.turboRiseRate : this.combo ? C.boostDecay : Math.max(this.turboRate, C.boostDecay)) * dt);
     const level = Math.min((C.maxBaseSpeed - C.baseSpeed) / C.speedIncrement, Math.floor(this.distance / C.distanceStep));
@@ -254,7 +256,13 @@ export class Simulation {
         const rel0 = oldX - v.oldX, rel1 = this.x - v.x;
         const contact = interval(rel0, rel1, -halfX, halfX);
         if (contact && Math.max(contact[0], overlap[0]) <= Math.min(contact[1], overlap[1])) {
-          v.gapPassSide = 0; v.disqualified = true; contacts.push({ type: 'hit', v, at: Math.max(contact[0], overlap[0]) });
+          const at = Math.max(contact[0], overlap[0]);
+          const entryX = rel0 + (rel1 - rel0) * overlap[0];
+          const rampEntry = v.type === 'rampTruck' && !v.rampUsed && v.oldZ <= -halfZ &&
+            Math.abs(at - overlap[0]) < 1e-9 && Math.abs(entryX) <= .75;
+          v.gapPassSide = 0; v.disqualified = true;
+          if (rampEntry) contacts.push({ type: 'jump', v, at });
+          else if (!(v.type === 'rampTruck' && v.rampUsed && this.jumpVehicleId === v.id)) contacts.push({ type: 'hit', v, at });
         }
         const r0 = rel0 + (rel1 - rel0) * overlap[0], r1 = rel0 + (rel1 - rel0) * overlap[1];
         if (!v.nearStarted) { v.nearStarted = true; v.side = Math.sign(r0); if (v.oldZ > -halfZ + 1e-6) v.disqualified = true; }
@@ -268,11 +276,20 @@ export class Simulation {
       if (v.oldZ <= halfZ && v.z > halfZ && v.nearStarted && !v.disqualified && !v.scored) contacts.push({ type: 'near', v, at: (halfZ - v.oldZ) / (v.z - v.oldZ), points: nearPoints(v.minGap) });
       if (v.z > 24) v.active = false;
     }
-    contacts.sort((a,b) => a.at - b.at || (a.type === b.type ? (a.points || 0) - (b.points || 0) || a.v.id-b.v.id : a.type === 'hit' ? -1 : 1));
+    const priority = { hit: 0, jump: 1, near: 2 };
+    contacts.sort((a,b) => a.at - b.at || priority[a.type] - priority[b.type] || (a.points || 0) - (b.points || 0) || a.v.id - b.v.id);
     for (const event of contacts) {
       if (this.dead || !event.v.active) continue;
-      if (event.type === 'hit') {
+      if (event.type === 'jump') {
+        event.v.rampUsed = true; this.jumpVehicleId = event.v.id;
+        const closingSpeed = Math.max(1, this.speed - event.v.trafficSpeed);
+        this.jumpDuration = Math.max(2, (event.v.length + C.bikeLength + VEHICLES.car.length) / closingSpeed + .35);
+        this.jumpTime = this.jumpDuration;
+        this.score = Math.min(Number.MAX_SAFE_INTEGER, this.score + 500);
+        this.events.push({ type: 'jump', points: 500 });
+      } else if (event.type === 'hit') {
         this.resetGapPasses();
+        if (this.jumpTime > 0) continue;
         if (this.invincible > 0) continue;
         this.health--; this.breakCombo(); this.invincible = C.invincible; this.crashRecovery = 1.5; this.hitStop = .15;
         this.events.push({ type: 'hit', health: this.health });

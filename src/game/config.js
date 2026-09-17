@@ -18,6 +18,7 @@ export const VEHICLES = Object.freeze({
   car: { width: 1.8, length: 4.5, height: 1.5 },
   truck: { width: 2.4, length: 8, height: 3.2 },
   bus: { width: 2.5, length: 10, height: 3 },
+  rampTruck: { width: 2.6, length: 11, height: 3.1 },
 });
 export const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 export const moveToward = (n, target, amount) => n + clamp(target - n, -amount, amount);

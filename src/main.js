@@ -94,7 +94,7 @@ function showTutorial(){
   openModal('tutorial.title');$('#close-modal').hidden=true;
   const demo=element('div','← ◇ →','swipe-demo');demo.setAttribute('aria-hidden','true');$('#modal-content').append(demo);
   const list=document.createElement('ol');list.className='steps';
-  for(const key of ['tutorial.move','tutorial.near','tutorial.combo'])list.append(element('li',t(key)));
+  for(const key of ['tutorial.move','tutorial.near','tutorial.combo','tutorial.ramp'])list.append(element('li',t(key)));
   $('#modal-content').append(list,element('p',t('tutorial.keyboard'),'modal-copy'));
   $('#modal-action').textContent=t('tutorial.start');$('#modal-action').onclick=()=>{platform.completeTutorial();countdown();modal.close();};$('#modal-action').focus();
 }
@@ -135,6 +135,7 @@ function frame(timestamp){
       for(const event of sim.events){
         if(event.type==='coin'){showToast(`${t('hud.coin')} +${event.points}`);audio.effect('coin');}
         if(event.type==='near'){showToast(`${t(event.tier===300?'hud.veryClose':'hud.near')} +${event.points}`);audio.effect('near');}
+        if(event.type==='jump'){showToast(`${t('hud.jump')} +${event.points}`);audio.effect('jump');}
         if(event.type==='speed')showToast(t('hud.speedUp'));
         if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(save.settings.haptics&&navigator.vibrate)navigator.vibrate(60);}
         if(event.type==='dead'){saveNow();state='result';setActive();audio.pause();renderPanel();break;}

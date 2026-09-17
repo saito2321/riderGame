@@ -39,10 +39,12 @@ function vehicle(type, color) {
   const g = new THREE.Group(), {width:w,length:d,height:h} = VEHICLES[type];
   const contact=shadow(g,w*1.15,d*1.03);
   box(g,'#263b40',0,.44,0,w*.92,.35,d*.92);
-  panel(g,color,0,.76,0,w,.66,d);
-  box(g,'#252e36',0,.46,d*.49,w*.88,.16,.12);
-  box(g,'#b0b8bd',0,.58,d*.495,w*.78,.035,.04);
-  box(g,'#d3d8d5',0,.65,d*.516,.36,.14,.015);
+  if(type!=='rampTruck'){
+    panel(g,color,0,.76,0,w,.66,d);
+    box(g,'#252e36',0,.46,d*.49,w*.88,.16,.12);
+    box(g,'#b0b8bd',0,.58,d*.495,w*.78,.035,.04);
+    box(g,'#d3d8d5',0,.65,d*.516,.36,.14,.015);
+  }
   box(g,'#27313a',0,.66,-d*.505,w*.54,.19,.035);
   if (type === 'car') {
     panel(g,'#273e50',0,1.18,-.12,w*.83,.65,d*.5);
@@ -55,6 +57,18 @@ function vehicle(type, color) {
       panel(g,color,side*w*.55,1.11,-.68,.21,.15,.25);
       for(const z of [-.35,.7])box(g,'#c3cbd0',side*w*.498,.95,z,.025,.04,.17);
       box(g,'#27333d',side*w*.501,.59,0,.025,.1,d*.53);
+    }
+  } else if(type === 'rampTruck') {
+    panel(g,'#ef7436',0,1.45,-d*.36,w,1.5,d*.27);
+    box(g,'#29494f',0,1.75,-d*.5,w*.82,.65,.05);
+    box(g,'#f7bc48',0,.78,-d*.05,w*.88,.2,d*.58);
+    const ramp=box(g,'#f5a238',0,1.35,d*.15,w*.84,.16,d*.7);ramp.rotation.x=.28;
+    for(const side of [-1,1]){
+      const rail=box(g,'#fff0a4',side*w*.38,1.42,d*.15,.07,.1,d*.7);rail.rotation.x=.28;
+      box(g,'#bd462d',side*w*.47,.8,d*.24,.1,.55,d*.44);
+    }
+    for(const z of [d*.05,d*.22,d*.39]){
+      const stripe=box(g,'#fff1ae',0,1.35-Math.sin(.28)*(z-d*.15),z,w*.62,.025,.1);stripe.rotation.x=.28;
     }
   } else if(type === 'truck') {
     box(g,'#e0dfc4',0,1.95,.85,w,2.35,d*.7);
@@ -95,8 +109,12 @@ function vehicle(type, color) {
   const signals=new Set([contact,arrow,...brakeLamps,...lamps.map(p=>p.lamp)]);
   const detail=g.children.filter(child=>!signals.has(child));
   const distant=new THREE.Group();
-  box(distant,color,0,.77,0,w,.66,d);
+  if(type!=='rampTruck')box(distant,color,0,.77,0,w,.66,d);
   if(type==='car')box(distant,'#273e50',0,1.24,-.12,w*.82,.55,d*.5);
+  else if(type==='rampTruck'){
+    box(distant,'#ef7436',0,1.45,-d*.36,w,1.5,d*.27);
+    const ramp=box(distant,'#f5a238',0,1.35,d*.15,w*.84,.16,d*.7);ramp.rotation.x=.28;
+  }
   else if(type==='truck'){
     box(distant,'#e0dfc4',0,1.95,.85,w,2.35,d*.7);
     box(distant,color,0,1.4,-d*.36,w,1.55,d*.24);
@@ -170,7 +188,11 @@ export class World {
     damage.tail.rotation.z=sim.health<2?.18:0;
     // Render the fixed-step movement pose; damage never adds an idle body wobble.
     damage.visual.rotation.z=sim.dead?-.8:sim.bank*(settings.reduceMotion?C.reducedBikeLean:C.bikeLean);
-    this.bike.position.y=sim.dead?-.18:0;
+    const jumpPhase=sim.jumpTime>0?1-sim.jumpTime/sim.jumpDuration:0;
+    const flightHeight=jumpPhase<.3?Math.sin(Math.PI*jumpPhase/.6):jumpPhase>.7?Math.sin(Math.PI*(1-jumpPhase)/.6):1;
+    this.bike.position.y=sim.dead?-.18:jumpPhase?flightHeight*3.4:0;
+    damage.groundShadow.position.y=.055-this.bike.position.y;
+    damage.visual.rotation.x=jumpPhase?Math.sin(Math.PI*2*jumpPhase)*.16:0;
     damage.flame.visible=sim.turbo>.05 && !sim.dead;damage.flame.scale.y=.6+sim.turbo*.24;
     for(const wheel of damage.wheels)wheel.rotation.x=-sim.distance*2;
     this.bike.visible=sim.invincible<=0 || settings.reduceMotion || Math.floor(sim.time*8)%2===0;

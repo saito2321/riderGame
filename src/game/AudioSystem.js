@@ -19,7 +19,7 @@ export class AudioSystem {
     o.type=type;o.frequency.setValueAtTime(frequency,t);g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.001,t+duration);
     o.connect(g);g.connect(this.master);o.start();o.stop(t+duration);o.onended=()=>{o.disconnect();g.disconnect();};
   }
-  effect(type) { if(!this.settings.sfx)return;this.tone(type==='hit'?65:type==='near'?740:type==='coin'?1100:440,type==='hit'?.25:.12,type==='hit'?'sawtooth':'sine',.4); }
+  effect(type) { if(!this.settings.sfx)return;this.tone(type==='hit'?65:type==='jump'?920:type==='near'?740:type==='coin'?1100:440,type==='hit'?.25:type==='jump'?.3:.12,type==='hit'?'sawtooth':'sine',.4); }
   update(sim,dt) {
     if(!this.context)return;
     this.engine.frequency.setTargetAtTime(40+sim.speed*2.2+sim.turbo*3,this.context.currentTime,.08);
