@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CoinSystem } from '../src/game/CoinSystem.js';
 import { Simulation } from '../src/game/Simulation.js';
-const fixture=()=>({speed:22,x:0,score:0,combo:25,turbo:8,vehicles:[],events:[]});
+const fixture=()=>({speed:60/3.6,x:0,score:0,combo:25,turbo:8,vehicles:[],events:[]});
 const car=(x,z,toX=x)=>({active:true,x,z,toX,change:toX===x?'straight':'queued',width:1.8,length:4.5,trafficSpeed:12});
 test('coin rows contain 3–5 coins at a lane center and are reproducible',()=>{
  for(let seed=1;seed<=30;seed++){
@@ -15,6 +15,15 @@ test('coin rows contain 3–5 coins at a lane center and are reproducible',()=>{
 test('pickup is a flat 20 points once even with combo and turbo',()=>{
  const c=new CoinSystem(1),s=fixture();Object.assign(c.items[0],{active:true,x:0,z:-.1});
  c.update(s,.02,0);c.update(s,.02,0);assert.equal(s.score,20);assert.equal(c.collected,1);assert.equal(s.combo,25);assert.deepEqual(s.events,[{type:'coin',points:20}]);
+});
+test('coin pickup gives a temporary speed boost without starting a combo',()=>{
+ const s=new Simulation(1);s.vehicles.forEach(v=>v.active=false);s.spawnWave=()=>{};
+ Object.assign(s.coins.items[0],{active:true,x:0,z:-.01});
+ s.step(1/120,{target:0,axis:0});
+ assert.equal(s.combo,0);assert.equal(s.turbo,1.2);
+ s.step(1/120,{target:0,axis:0});assert.ok(s.speed>60/3.6);
+ for(let i=0;i<120;i++)s.step(1/120,{target:0,axis:0});
+ assert.equal(s.turbo,0);
 });
 test('continuous pickup uses lateral position when passing the coin',()=>{
  const c=new CoinSystem(1),s=fixture();s.speed=44;s.x=1;

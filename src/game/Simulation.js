@@ -56,7 +56,7 @@ export class Simulation {
   hasSafePath(extra = []) {
     const obstacles = [...this.vehicles.filter(v => v.active), ...extra];
     const minClosingSpeed = C.baseSpeed * .8 - C.vehicleSpeed;
-    const maxClosingSpeed = C.maxSpeed - C.brakingSpeed;
+    const maxClosingSpeed = Math.min(C.maxSpeed, this.speed + C.maxTurbo + 2 * C.speedIncrement) - C.brakingSpeed;
     const horizon = Math.max(6, ...obstacles.map(v => (-v.z + (v.length + C.bikeLength) / 2) / minClosingSpeed));
     for (const target of [-C.edge, -3.5, -1.75, 0, 1.75, 3.5, C.edge]) {
       let x = this.x, safe = true;
@@ -156,7 +156,8 @@ export class Simulation {
       const gap = (v.length + car.length) / 2 + 14 + differential * horizon;
       const otherMin = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x);
       const otherMax = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x);
-      if (Math.abs(v.z - car.z) < gap && otherMax >= minX - 2.5 && otherMin <= maxX + 2.5) return false;
+      const halfX = (v.width + car.width) / 2 + .2;
+      if (Math.abs(v.z - car.z) < gap && otherMax >= minX - halfX && otherMin <= maxX + halfX) return false;
     }
     return true;
   }
@@ -214,10 +215,10 @@ export class Simulation {
     this.invincible = Math.max(0, this.invincible - dt);
     this.crashRecovery = Math.max(0, this.crashRecovery - dt);
     const turboTarget = Math.min(this.combo * .4, C.maxTurbo);
-    this.turbo = moveToward(this.turbo, turboTarget, (turboTarget > this.turbo ? this.turboRiseRate : this.turboRate) * dt);
-    const level = Math.min(28, Math.floor(this.distance / C.distanceStep));
+    this.turbo = moveToward(this.turbo, turboTarget, (turboTarget > this.turbo ? this.turboRiseRate : this.combo ? C.boostDecay : Math.max(this.turboRate, C.boostDecay)) * dt);
+    const level = Math.min((C.maxBaseSpeed - C.baseSpeed) / C.speedIncrement, Math.floor(this.distance / C.distanceStep));
     if (level > this.speedLevel) { this.events.push({ type: 'speed' }); this.speedLevel = level; }
-    this.baseSpeed = moveToward(this.baseSpeed, C.baseSpeed + level * .5, dt);
+    this.baseSpeed = moveToward(this.baseSpeed, C.baseSpeed + level * C.speedIncrement, C.baseAcceleration * dt);
     this.speed = Math.min(C.maxSpeed, this.baseSpeed + this.turbo) * (1 - .2 * this.crashRecovery / 1.5);
     const traveled = this.speed * dt;
     this.distance += traveled; this.score = Math.min(Number.MAX_SAFE_INTEGER, this.score + traveled);
@@ -274,6 +275,7 @@ export class Simulation {
         const at = startTime + event.at * dt;
         if (at - this.lastNear > C.comboTime + 1e-9) this.combo = 0;
         event.v.scored = true; this.combo++; this.lastNear = at;
+        if (event.points === 300) this.turbo = Math.min(C.maxTurbo, this.turbo + C.veryCloseBoost);
         this.turboRiseRate = Math.max(0, Math.min(this.combo * .4, C.maxTurbo) - this.turbo) / .2;
         this.bestCombo = Math.max(this.bestCombo, this.combo); this.nearMisses++;
         const points = event.points * multiplier(this.combo);

@@ -36,5 +36,5 @@ test('blocked spawn remains pending and reset/revive clear the streak',()=>{
   s.dead=true;assert.ok(s.revive());assert.equal(s.gapPassCount,0);s.reset(12);assert.equal(s.gapPassCount,0);
 });
 test('remaining in the gap after the third pass eventually collides with the motorcycle',()=>{
-  const s=empty();pass(s);pass(s);pass(s);advance(s,6);assert.ok(s.health<C.health);
+  const s=empty();pass(s);pass(s);pass(s);advance(s,12);assert.ok(s.health<C.health);
 });

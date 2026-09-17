@@ -46,7 +46,7 @@ export class CoinSystem {
       const oldZ=coin.z;coin.z+=sim.speed*dt;
       if(oldZ<=0&&coin.z>0){
         const at=-oldZ/(coin.z-oldZ),x=oldX+(sim.x-oldX)*at;
-        if(Math.abs(x-coin.x)<=.55){sim.score=Math.min(Number.MAX_SAFE_INTEGER,sim.score+20);this.collected++;sim.events.push({type:'coin',points:20});coin.active=false;}
+        if(Math.abs(x-coin.x)<=.55){sim.score=Math.min(Number.MAX_SAFE_INTEGER,sim.score+20);sim.turbo=Math.min(C.maxTurbo,sim.turbo+C.coinBoost);this.collected++;sim.events.push({type:'coin',points:20});coin.active=false;}
       }
       if(coin.z>8)coin.active=false;
     }
