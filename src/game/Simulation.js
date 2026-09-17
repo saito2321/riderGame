@@ -28,7 +28,8 @@ export class Simulation {
     for (const v of this.vehicles) v.active = false;
     this.spawnVehicle('car', -3.5, -60);
     this.spawnVehicle('car', 3.5, -92);
-    this.spawnVehicle('rampTruck', 0, -124);
+    const openingRamp = this.spawnVehicle('rampTruck', 0, -50);
+    openingRamp.trafficSpeed = 4; openingRamp.cruiseSpeed = 4;
     this.coins.placeStartingCoins();
   }
   spawnVehicle(type, x, z) {
@@ -37,7 +38,7 @@ export class Simulation {
     Object.assign(v, type === 'bike' ? TRAFFIC_BIKE : VEHICLES[type], { type, id: this.nextId++, active: true, x, z, oldX: x, oldZ: z,
       gapPassSide: 0, nearStarted: false, disqualified: false, scored: false, minGap: Infinity, side: 0,
       change: 'straight', plannedDirection: 0, changeUsed: false, changeTime: 0, warning: 0, direction: 0, fromX: x, toX: x,
-      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed, rampUsed: false });
+      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed, cruiseSpeed: C.vehicleSpeed, rampUsed: false });
     return v;
   }
   breakCombo(immediate = false) { this.combo = 0; this.turboRate = this.turbo; if (immediate) this.turbo = 0; }
@@ -58,7 +59,8 @@ export class Simulation {
   hasSafePath(extra = []) {
     const obstacles = [...this.vehicles.filter(v => v.active), ...extra];
     const minClosingSpeed = this.baseSpeed * .8 - C.vehicleSpeed;
-    const maxClosingSpeed = Math.min(C.maxSpeed, this.speed + C.maxTurbo + 2 * C.speedIncrement) - C.brakingSpeed;
+    const slowestTraffic = Math.min(C.brakingSpeed, ...obstacles.map(v => v.cruiseSpeed ?? C.vehicleSpeed));
+    const maxClosingSpeed = Math.min(C.maxSpeed, this.speed + C.maxTurbo + 2 * C.speedIncrement) - slowestTraffic;
     const horizon = Math.max(6, ...obstacles.map(v => (-v.z + (v.length + C.bikeLength) / 2) / minClosingSpeed));
     for (const target of [-C.edge, -3.5, -1.75, 0, 1.75, 3.5, C.edge]) {
       let x = this.x, safe = true;
@@ -214,7 +216,7 @@ export class Simulation {
       v.brakeTime = Math.max(0, v.brakeTime - dt);
       v.trafficSpeed = moveToward(v.trafficSpeed, C.brakingSpeed, C.brakeDeceleration * dt);
       if (v.brakeTime === 0) v.braking = false;
-    } else v.trafficSpeed = moveToward(v.trafficSpeed, C.vehicleSpeed, C.vehicleAcceleration * dt);
+    } else v.trafficSpeed = moveToward(v.trafficSpeed, v.cruiseSpeed, C.vehicleAcceleration * dt);
     v.z += (this.speed - v.trafficSpeed) * dt;
   }
   step(dt, input = { target: this.x, axis: 0 }) {
@@ -259,7 +261,7 @@ export class Simulation {
           const at = Math.max(contact[0], overlap[0]);
           const entryX = rel0 + (rel1 - rel0) * overlap[0];
           const rampEntry = v.type === 'rampTruck' && !v.rampUsed && v.oldZ <= -halfZ &&
-            Math.abs(at - overlap[0]) < 1e-9 && Math.abs(entryX) <= .75;
+            Math.abs(at - overlap[0]) < 1e-9 && Math.abs(entryX) <= C.rampHalfWidth;
           v.gapPassSide = 0; v.disqualified = true;
           if (rampEntry) contacts.push({ type: 'jump', v, at });
           else if (!(v.type === 'rampTruck' && v.rampUsed && this.jumpVehicleId === v.id)) contacts.push({ type: 'hit', v, at });

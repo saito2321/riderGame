@@ -62,9 +62,9 @@ function vehicle(type, color) {
     panel(g,'#ef7436',0,1.45,-d*.36,w,1.5,d*.27);
     box(g,'#29494f',0,1.75,-d*.5,w*.82,.65,.05);
     box(g,'#f7bc48',0,.78,-d*.05,w*.88,.2,d*.58);
-    const ramp=box(g,'#f5a238',0,1.35,d*.15,w*.84,.16,d*.7);ramp.rotation.x=.28;
+    const ramp=box(g,'#f5a238',0,1.35,d*.15,w*.96,.16,d*.7);ramp.rotation.x=.28;
     for(const side of [-1,1]){
-      const rail=box(g,'#fff0a4',side*w*.38,1.42,d*.15,.07,.1,d*.7);rail.rotation.x=.28;
+      const rail=box(g,'#fff0a4',side*w*.49,1.42,d*.15,.07,.1,d*.7);rail.rotation.x=.28;
       box(g,'#bd462d',side*w*.47,.8,d*.24,.1,.55,d*.44);
     }
     for(const z of [d*.05,d*.22,d*.39]){
@@ -113,7 +113,7 @@ function vehicle(type, color) {
   if(type==='car')box(distant,'#273e50',0,1.24,-.12,w*.82,.55,d*.5);
   else if(type==='rampTruck'){
     box(distant,'#ef7436',0,1.45,-d*.36,w,1.5,d*.27);
-    const ramp=box(distant,'#f5a238',0,1.35,d*.15,w*.84,.16,d*.7);ramp.rotation.x=.28;
+    const ramp=box(distant,'#f5a238',0,1.35,d*.15,w*.96,.16,d*.7);ramp.rotation.x=.28;
   }
   else if(type==='truck'){
     box(distant,'#e0dfc4',0,1.95,.85,w,2.35,d*.7);

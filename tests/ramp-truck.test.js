@@ -22,9 +22,25 @@ test('the opening center-lane vehicle is always a ramp truck',()=>{
     const center=s.vehicles.filter(v=>v.active&&v.x===0);
     assert.equal(center.length,1);
     assert.equal(center[0].type,'rampTruck');
-    assert.equal(center[0].z,-124);
+    assert.equal(center[0].z,-50);
+    assert.equal(center[0].cruiseSpeed,4);
     assert.equal(s.coins.items.filter(c=>c.active&&c.x===0).length,5);
   }
+});
+test('the opening ramp arrives shortly after all five coins',()=>{
+  const s=new Simulation(1);s.spawnWave=()=>{};
+  const coinTimes=[];let jumpTime;
+  for(let i=0;i<120*8&&!jumpTime;i++){
+    s.step(C.step,{target:0,axis:0});
+    for(const event of s.events){
+      if(event.type==='coin')coinTimes.push(s.time);
+      if(event.type==='jump')jumpTime=s.time;
+    }
+  }
+  assert.equal(coinTimes.length,5);
+  assert.ok(jumpTime-coinTimes.at(-1)>0);
+  assert.ok(jumpTime-coinTimes.at(-1)<1.5);
+  assert.equal(s.health,C.health);
 });
 
 test('ramp truck spawns after the opening stretch',()=>{
@@ -42,6 +58,15 @@ test('entering the ramp from behind jumps and awards 500 points once',()=>{
   assert.equal(truck.rampUsed,true);
   assert.equal(s.jumpTime,0);
 });
+test('off-center ramp entry works on both sides',()=>{
+  for(const x of [-C.rampHalfWidth,-.9,.9,C.rampHalfWidth]){
+    const s=empty(x),halfZ=(VEHICLES.rampTruck.length+C.bikeLength)/2;
+    s.spawnVehicle('rampTruck',0,-halfZ-.1);
+    const events=advance(s,.1);
+    assert.equal(events.filter(e=>e.type==='jump').length,1,`x=${x}`);
+    assert.equal(s.health,C.health);
+  }
+});
 test('jump lasts at least two seconds and clears the truck by a car length',()=>{
   for(const kmh of [60,150,300]){
     const s=empty(),halfZ=(VEHICLES.rampTruck.length+C.bikeLength)/2;
@@ -55,7 +80,7 @@ test('jump lasts at least two seconds and clears the truck by a car length',()=>
   }
 });
 test('side and late entry into the ramp truck still cause damage',()=>{
-  for(const [x,z] of [[1,-6.6],[0,0]]){
+  for(const [x,z] of [[1.4,-6.6],[-1.4,-6.6],[0,0]]){
     const s=empty(x);s.spawnVehicle('rampTruck',0,z);
     const events=advance(s,.3);
     assert.equal(s.health,C.health-1,`x=${x}, z=${z}`);

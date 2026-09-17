@@ -8,6 +8,7 @@ export const CONFIG = Object.freeze({
   distanceStep: 300, speedIncrement: 5 / 3.6, baseAcceleration: 10 / 3.6,
   comboTime: 3, maxTurbo: 8, spawnZ: -155, poolSize: 18,
   coinBoost: 1.2, veryCloseBoost: 2.4, boostDecay: 2,
+  rampHalfWidth: 1.15,
   trafficDensity: 1,
   brakeStartScore: 5000, brakeInterval: 3, brakeChance: .4, brakeDuration: 1.5,
   gapPassThreshold: 3, gapHalfWidth: .5, gapSpawnDistance: 45, gapReactionSeconds: 2.5,

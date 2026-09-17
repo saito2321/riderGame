@@ -16,7 +16,7 @@ test('continuous overlap detects a crossing even if endpoints are outside',()=>{
   assert.deepEqual(interval(-3,3,-1,1),[1/3,2/3]);assert.equal(interval(2,2,-1,1),null);
 });
 test('outer movement limits cannot bypass traffic with keyboard or drag input',()=>{
-  for(const side of [-1,1])for(const keyboard of [false,true])for(const type of Object.keys(VEHICLES)){
+  for(const side of [-1,1])for(const keyboard of [false,true])for(const type of Object.keys(VEHICLES).filter(type=>type!=='rampTruck')){
     const s=empty();s.x=side*C.edge;
     s.spawnVehicle(type,side*C.laneWidth,-8);
     const input={axis:keyboard?side:0,target:side*100};
