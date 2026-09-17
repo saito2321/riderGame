@@ -22,7 +22,7 @@ test('the opening center-lane vehicle is always a ramp truck',()=>{
     const center=s.vehicles.filter(v=>v.active&&v.x===0);
     assert.equal(center.length,1);
     assert.equal(center[0].type,'rampTruck');
-    assert.equal(center[0].z,-50);
+    assert.equal(center[0].z,-55);
     assert.equal(center[0].cruiseSpeed,4);
     assert.equal(s.coins.items.filter(c=>c.active&&c.x===0).length,5);
   }
@@ -68,7 +68,7 @@ test('off-center ramp entry works on both sides',()=>{
   }
 });
 test('jump lasts at least two seconds and clears the truck by a car length',()=>{
-  for(const kmh of [60,150,300]){
+  for(const kmh of [80,150,300]){
     const s=empty(),halfZ=(VEHICLES.rampTruck.length+C.bikeLength)/2;
     s.baseSpeed=kmh/3.6;s.speed=s.baseSpeed;
     const truck=s.spawnVehicle('rampTruck',0,-halfZ-.1);

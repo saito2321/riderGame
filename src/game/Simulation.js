@@ -28,7 +28,7 @@ export class Simulation {
     for (const v of this.vehicles) v.active = false;
     this.spawnVehicle('car', -3.5, -60);
     this.spawnVehicle('car', 3.5, -92);
-    const openingRamp = this.spawnVehicle('rampTruck', 0, -50);
+    const openingRamp = this.spawnVehicle('rampTruck', 0, -55);
     openingRamp.trafficSpeed = 4; openingRamp.cruiseSpeed = 4;
     this.coins.placeStartingCoins();
   }
@@ -232,7 +232,7 @@ export class Simulation {
     const level = Math.min((C.maxBaseSpeed - C.baseSpeed) / C.speedIncrement, Math.floor(this.distance / C.distanceStep));
     if (level > this.speedLevel) { this.events.push({ type: 'speed' }); this.speedLevel = level; }
     this.baseSpeed = moveToward(this.baseSpeed, C.baseSpeed + level * C.speedIncrement, C.baseAcceleration * dt);
-    this.speed = Math.min(C.maxSpeed, this.baseSpeed + this.turbo) * (1 - .2 * this.crashRecovery / 1.5);
+    this.speed = Math.max(C.minSpeed, Math.min(C.maxSpeed, this.baseSpeed + this.turbo) * (1 - .2 * this.crashRecovery / 1.5));
     const traveled = this.speed * dt;
     this.distance += traveled; this.score = Math.min(Number.MAX_SAFE_INTEGER, this.score + traveled);
     const oldX = this.x;

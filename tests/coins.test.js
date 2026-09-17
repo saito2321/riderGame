@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CoinSystem } from '../src/game/CoinSystem.js';
 import { Simulation } from '../src/game/Simulation.js';
-const fixture=()=>({speed:60/3.6,x:0,score:0,combo:25,turbo:8,vehicles:[],events:[]});
+const fixture=()=>({speed:80/3.6,x:0,score:0,combo:25,turbo:8,vehicles:[],events:[]});
 const car=(x,z,toX=x)=>({active:true,x,z,toX,change:toX===x?'straight':'queued',width:1.8,length:4.5,trafficSpeed:12});
 test('every run starts with five collectable coins in the center lane',()=>{
  const s=new Simulation(1);
@@ -33,7 +33,7 @@ test('coin pickup gives a temporary speed boost without starting a combo',()=>{
  Object.assign(s.coins.items[0],{active:true,x:0,z:-.01});
  s.step(1/120,{target:0,axis:0});
  assert.equal(s.combo,0);assert.equal(s.turbo,1.2);
- s.step(1/120,{target:0,axis:0});assert.ok(s.speed>60/3.6);
+ s.step(1/120,{target:0,axis:0});assert.ok(s.speed>80/3.6);
  for(let i=0;i<120;i++)s.step(1/120,{target:0,axis:0});
  assert.equal(s.turbo,0);
 });

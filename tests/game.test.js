@@ -56,7 +56,7 @@ test('gap boundaries and max-speed complete passes remain correct',()=>{
     const {s}=pass(type,.6,{speed:C.maxBaseSpeed});assert.equal(s.nearMisses,1);
     const outside=pass(type,.601);assert.equal(outside.s.nearMisses,0);
     const contact=pass(type,0,{invincible:true});assert.equal(contact.s.nearMisses,0);assert.equal(contact.s.health,2);
-    const fast=empty();fast.distance=14400;fast.baseSpeed=C.maxBaseSpeed;fast.combo=20;fast.lastNear=0;fast.turbo=8;fast.x=(VEHICLES[type].width+C.bikeWidth)/2+.3;
+    const fast=empty();fast.distance=13200;fast.baseSpeed=C.maxBaseSpeed;fast.combo=20;fast.lastNear=0;fast.turbo=8;fast.x=(VEHICLES[type].width+C.bikeWidth)/2+.3;
     fast.spawnVehicle(type,0,-8);advance(fast,1);assert.equal(fast.nearMisses,1);
   }
 });
@@ -82,12 +82,16 @@ test('simultaneous passes are ordered independently of vehicle pool order',()=>{
   assert.deepEqual(run(false),run(true));assert.equal(run(false)[2],2);
 });
 test('speed follows distance, reaches cap, and turbo decays in 1 second',()=>{
-  const s=empty();s.score=40000;advance(s,.1);close(s.baseSpeed,60/3.6);
-  s.distance=297;advance(s,.1);close(s.baseSpeed,60/3.6);
-  s.distance=300;advance(s,.5);close(s.baseSpeed,65/3.6);
-  s.distance=14400;advance(s,24);close(s.baseSpeed,300/3.6);
+  const s=empty();s.score=40000;advance(s,.1);close(s.baseSpeed,80/3.6);
+  s.distance=297;advance(s,.1);close(s.baseSpeed,80/3.6);
+  s.distance=300;advance(s,.5);close(s.baseSpeed,85/3.6);
+  s.distance=13200;advance(s,22);close(s.baseSpeed,300/3.6);
   s.combo=20;s.lastNear=s.time;s.turbo=8;advance(s,.1);close(s.speed,88);
   s.breakCombo();advance(s,1);close(s.turbo,0);assert.ok(s.speed<=88);
+});
+test('crash recovery never lowers actual speed below 80 km/h',()=>{
+  const s=empty();s.crashRecovery=1.5;s.step(C.step,{target:0,axis:0});close(s.speed,C.minSpeed);
+  s.distance=1200;s.baseSpeed=100/3.6;s.crashRecovery=1.5;s.step(C.step,{target:0,axis:0});assert.ok(s.speed>=C.minSpeed&&s.speed<C.minSpeed+.1);
 });
 test('lane-change warnings use the per-run score and stop at the lower bound',()=>{
   assert.equal(warningSeconds(10000),2.5);assert.equal(warningSeconds(15000),2.25);assert.equal(warningSeconds(35000),1.25);assert.equal(warningSeconds(999999),1.25);

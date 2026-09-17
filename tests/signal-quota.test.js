@@ -27,7 +27,7 @@ test('quota survives a blocked spawn instead of quietly becoming a straight vehi
 test('lane change begins before the player passes at 150 and 300 km/h',()=>{
  for(const kmh of [150,300]){
   const s=new Simulation(1);s.vehicles.forEach(v=>v.active=false);s.coins.clear();
-  s.x=3.5;s.distance=(kmh-60)/5*C.distanceStep;s.baseSpeed=kmh/3.6;s.speed=s.baseSpeed;
+  s.x=3.5;s.distance=(kmh-80)/5*C.distanceStep;s.baseSpeed=kmh/3.6;s.speed=s.baseSpeed;
   s.unsignaledTraffic=signalEvery(0)-1;s.random=()=>0;s.spawnWave();
   const car=s.vehicles.find(v=>v.active&&v.change==='queued');assert.ok(car,`${kmh} km/h: planned car`);
   s.spawnWave=()=>{};
