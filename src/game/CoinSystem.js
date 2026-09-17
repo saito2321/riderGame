@@ -4,6 +4,7 @@ export class CoinSystem {
   constructor(seed){this.items=Array.from({length:30},()=>({active:false,x:0,z:0}));this.reset(seed);}
   reset(seed){this.random=randomGenerator(seed^0x43a91);this.collected=0;this.clear();}
   clear(){for(const coin of this.items)coin.active=false;this.travel=0;}
+  placeStartingCoins(){for(let i=0;i<5;i++)Object.assign(this.items[i],{active:true,x:0,z:-20-i*4});}
   // Predict traffic at the pickup, including the full width of any lane change.
   safe(sim,x,z){
     const time=Math.max(0,-z/sim.speed);

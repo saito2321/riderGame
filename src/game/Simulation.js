@@ -28,6 +28,7 @@ export class Simulation {
     this.spawnVehicle('car', -3.5, -60);
     this.spawnVehicle('car', 3.5, -92);
     this.spawnVehicle('car', 0, -124);
+    this.coins.placeStartingCoins();
   }
   spawnVehicle(type, x, z) {
     const v = this.vehicles.find(v => !v.active);
@@ -55,7 +56,7 @@ export class Simulation {
   // Conservative acceptance can reject a playable wave; rejection means less traffic.
   hasSafePath(extra = []) {
     const obstacles = [...this.vehicles.filter(v => v.active), ...extra];
-    const minClosingSpeed = C.baseSpeed * .8 - C.vehicleSpeed;
+    const minClosingSpeed = this.baseSpeed * .8 - C.vehicleSpeed;
     const maxClosingSpeed = Math.min(C.maxSpeed, this.speed + C.maxTurbo + 2 * C.speedIncrement) - C.brakingSpeed;
     const horizon = Math.max(6, ...obstacles.map(v => (-v.z + (v.length + C.bikeLength) / 2) / minClosingSpeed));
     for (const target of [-C.edge, -3.5, -1.75, 0, 1.75, 3.5, C.edge]) {
@@ -107,24 +108,32 @@ export class Simulation {
     if (!this.hasSafePath([candidate])) return;
     this.spawnVehicle('bike', candidate.x, z); this.gapPassCount = 0;
   }
+  laneChangeTiming() {
+    const closingSpeed = Math.max(1, Math.min(C.maxSpeed, this.baseSpeed + C.maxTurbo) - C.vehicleSpeed);
+    const warning = Math.min(warningSeconds(this.score), Math.max(1.25, (155 - 35) / closingSpeed - 1));
+    const signalDistance = Math.max(105, closingSpeed * (warning + 1) + 35);
+    return { warning, signalZ: -signalDistance, spawnZ: -Math.max(155, signalDistance + 20) };
+  }
   spawnWave() {
     const lanes = [-3.5, 0, 3.5], first = Math.floor(this.random() * 3);
     const count = this.distance >= 1000 && this.random() < .55 ? 2 : 1;
     for (let i = 0; i < count; i++) {
       const due = this.unsignaledTraffic >= signalEvery(this.score) - 1;
+      const timing = due ? this.laneChangeTiming() : null;
+      const spawnZ = timing?.spawnZ ?? C.spawnZ;
       const r = this.random();
       const type = due ? 'car' : this.distance >= 3000 && r < .18 ? 'bus' : this.distance >= 1000 && r < .4 ? 'truck' : 'car';
       let spawned = false;
       for (let option = 0; option < (due ? 3 : 1); option++) {
         const x = lanes[(first + i + option) % 3];
-        const candidate = { ...VEHICLES[type], type, x, z: C.spawnZ, change: 'straight' };
+        const candidate = { ...VEHICLES[type], type, x, z: spawnZ, change: 'straight' };
         const dirs = due ? (x > 0 ? [-1, 1] : [1, -1]) : [0];
         for (const direction of dirs) {
           const toX = x + direction * C.laneWidth;
           if (Math.abs(toX) > C.laneWidth) continue;
           if (due) {
             candidate.change = 'queued'; candidate.toX = toX;
-            const horizon = (-C.spawnZ - 105) / (C.baseSpeed * .8 - C.vehicleSpeed) + warningSeconds(this.score) + 2;
+            const horizon = 20 / Math.max(1, this.speed - C.vehicleSpeed) + timing.warning + 2;
             if (!this.changeTrafficIsClear(candidate, toX, horizon)) continue;
           }
           const occupiesReservation = this.vehicles.some(other => other.active && other.change !== 'straight' &&
@@ -132,10 +141,10 @@ export class Simulation {
             candidate.x >= Math.min(other.x, other.toX) - (other.width + candidate.width) / 2 &&
             candidate.x <= Math.max(other.x, other.toX) + (other.width + candidate.width) / 2);
           if (occupiesReservation || !this.hasSafePath([candidate])) continue;
-          const v = this.spawnVehicle(type, x, C.spawnZ);
+          const v = this.spawnVehicle(type, x, spawnZ);
           if (!v) return;
           if (due) {
-            Object.assign(v, {change:'queued', fromX:x, toX, plannedDirection:direction});
+            Object.assign(v, {change:'queued', fromX:x, toX, plannedDirection:direction, signalZ:timing.signalZ, plannedWarning:timing.warning});
             this.unsignaledTraffic = 0;
           } else this.unsignaledTraffic++;
           spawned = true; break;
@@ -171,8 +180,8 @@ export class Simulation {
     // A lane corridor is reserved at spawn, so quota cars cannot lose the lottery
     // or miss a short scheduling window. Show the signal once they are visible.
     for (const v of this.vehicles) {
-      if (!v.active || v.change !== 'queued' || v.z < -105) continue;
-      v.change = 'signaling'; v.changeUsed = true; v.warning = warningSeconds(this.score);
+      if (!v.active || v.change !== 'queued' || v.z < (v.signalZ ?? -105)) continue;
+      v.change = 'signaling'; v.changeUsed = true; v.warning = v.plannedWarning ?? warningSeconds(this.score);
       v.changeTime = 0; v.direction = v.plannedDirection;
     }
   }

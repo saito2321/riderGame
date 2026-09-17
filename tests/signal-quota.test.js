@@ -24,6 +24,20 @@ test('quota survives a blocked spawn instead of quietly becoming a straight vehi
  const original=s.hasSafePath;s.hasSafePath=()=>false;s.spawnWave();assert.equal(s.unsignaledTraffic,9);assert.equal(s.vehicles.filter(v=>v.active).length,0);
  s.hasSafePath=original;s.spawnWave();assert.ok(s.vehicles.some(v=>v.active&&v.change==='queued'));
 });
+test('lane change begins before the player passes at 150 and 300 km/h',()=>{
+ for(const kmh of [150,300]){
+  const s=new Simulation(1);s.vehicles.forEach(v=>v.active=false);s.coins.clear();
+  s.x=3.5;s.distance=(kmh-60)/5*C.distanceStep;s.baseSpeed=kmh/3.6;s.speed=s.baseSpeed;
+  s.unsignaledTraffic=signalEvery(0)-1;s.random=()=>0;s.spawnWave();
+  const car=s.vehicles.find(v=>v.active&&v.change==='queued');assert.ok(car,`${kmh} km/h: planned car`);
+  s.spawnWave=()=>{};
+  for(let i=0;i<120*10&&car.change!=='changing';i++)s.step(C.step,{target:s.x,axis:0});
+  assert.equal(car.change,'changing',`${kmh} km/h: change starts`);
+  assert.ok(car.z < -35,`${kmh} km/h: change starts at z=${car.z}`);
+  for(let i=0;i<120*5&&car.z<0;i++)s.step(C.step,{target:s.x,axis:0});
+  assert.ok(car.x>car.fromX+1.75,`${kmh} km/h: car has crossed half a lane before passing`);
+ }
+});
 test('reserved signals actually start and finish over multiple seeded full runs',()=>{
  for(const score of [0,35000])for(const seed of [1,7,12]){
   const s=new Simulation(seed);s.invincible=10000;let started=0,cancelled=0;

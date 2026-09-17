@@ -4,6 +4,18 @@ import { CoinSystem } from '../src/game/CoinSystem.js';
 import { Simulation } from '../src/game/Simulation.js';
 const fixture=()=>({speed:60/3.6,x:0,score:0,combo:25,turbo:8,vehicles:[],events:[]});
 const car=(x,z,toX=x)=>({active:true,x,z,toX,change:toX===x?'straight':'queued',width:1.8,length:4.5,trafficSpeed:12});
+test('every run starts with five collectable coins in the center lane',()=>{
+ const s=new Simulation(1);
+ for(const seed of [1,2,42]){
+  s.reset(seed);
+  const row=s.coins.items.filter(c=>c.active);
+  assert.deepEqual(row.map(c=>[c.x,c.z]),[[0,-20],[0,-24],[0,-28],[0,-32],[0,-36]]);
+  assert.ok(row.every(c=>s.coins.safe(s,c.x,c.z)));
+ }
+ s.spawnWave=()=>{};
+ for(let i=0;i<120*4;i++)s.step(1/120,{target:0,axis:0});
+ assert.equal(s.coins.collected,5);
+});
 test('coin rows contain 3–5 coins at a lane center and are reproducible',()=>{
  for(let seed=1;seed<=30;seed++){
   const a=new CoinSystem(seed),b=new CoinSystem(seed);assert.equal(a.spawn(fixture()),true);b.spawn(fixture());

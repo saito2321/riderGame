@@ -112,16 +112,16 @@ export class World {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,this.lowPower?1:1.5));
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
-    this.scene=new THREE.Scene(); this.scene.background=new THREE.Color('#9eaeba'); this.scene.fog=new THREE.Fog('#9eaeba',42,168);this.scene.environment=environment();
-    this.camera=new THREE.PerspectiveCamera(70,1,.1,220); this.camera.position.set(0,6.2,11.5); this.camera.lookAt(0,1,-22);
+    this.scene=new THREE.Scene(); this.scene.background=new THREE.Color('#9eaeba'); this.scene.fog=new THREE.Fog('#9eaeba',42,240);this.scene.environment=environment();
+    this.camera=new THREE.PerspectiveCamera(70,1,.1,280); this.camera.position.set(0,6.2,11.5); this.camera.lookAt(0,1,-22);
     this.scene.add(new THREE.HemisphereLight('#dfeafa','#39434d',1.7));
     const sun=new THREE.DirectionalLight('#fff0d8',2.6); sun.position.set(-15,30,15); this.scene.add(sun);
-    box(this.scene,'#606a70',0,-.19,-70,160,.2,260);
-    const road=new THREE.Mesh(new THREE.PlaneGeometry(C.roadWidth,230),roadMaterial());road.rotation.x=-Math.PI/2;road.position.set(0,.045,-70);this.scene.add(road);this.road=road;
+    box(this.scene,'#606a70',0,-.19,-100,160,.2,320);
+    const road=new THREE.Mesh(new THREE.PlaneGeometry(C.roadWidth,300),roadMaterial());road.rotation.x=-Math.PI/2;road.position.set(0,.045,-100);this.scene.add(road);this.road=road;
     for(const side of [-1,1]) {
-      box(this.scene,'#8b9296',side*6.12,.04,-70,1.72,.28,230);
-      box(this.scene,'#bac0bd',side*5.31,.17,-70,.16,.12,230);
-      box(this.scene,'#ccd0c9',side*5.02,.065,-70,.1,.015,230);
+      box(this.scene,'#8b9296',side*6.12,.04,-100,1.72,.28,300);
+      box(this.scene,'#bac0bd',side*5.31,.17,-100,.16,.12,300);
+      box(this.scene,'#ccd0c9',side*5.02,.065,-100,.1,.015,300);
     }
     this.markings=new THREE.InstancedMesh(boxGeometry,material('#d9dbce'),48); this.scene.add(this.markings);
     this.coinDiscs=new THREE.InstancedMesh(new THREE.CylinderGeometry(.32,.32,.085,16),new THREE.MeshStandardMaterial({color:'#ffc333',metalness:.65,roughness:.28,emissive:'#b57000',emissiveIntensity:.25}),30);
