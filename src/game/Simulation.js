@@ -174,6 +174,7 @@ export class Simulation {
     return true;
   }
   changeIsSafe(car, toX) {
+    if (car.type === 'rampTruck') return false;
     if (!this.changeTrafficIsClear(car, toX, warningSeconds(this.score) + 2)) return false;
     const prior = { change: car.change, toX: car.toX };
     car.change = 'signaling'; car.toX = toX;
@@ -183,7 +184,7 @@ export class Simulation {
     // A lane corridor is reserved at spawn, so quota cars cannot lose the lottery
     // or miss a short scheduling window. Show the signal once they are visible.
     for (const v of this.vehicles) {
-      if (!v.active || v.change !== 'queued' || v.z < (v.signalZ ?? -105)) continue;
+      if (!v.active || v.type === 'rampTruck' || v.change !== 'queued' || v.z < (v.signalZ ?? -105)) continue;
       v.change = 'signaling'; v.changeUsed = true; v.warning = v.plannedWarning ?? warningSeconds(this.score);
       v.changeTime = 0; v.direction = v.plannedDirection;
     }
@@ -192,7 +193,7 @@ export class Simulation {
     if (this.score < C.brakeStartScore || this.vehicles.some(v => v.active && v.change !== 'straight')) return;
     this.brakeTimer += dt; if (this.brakeTimer < C.brakeInterval) return; this.brakeTimer = 0;
     if (this.random() >= C.brakeChance) return;
-    const candidates = this.vehicles.filter(v => v.active && v.type !== 'bike' && !v.brakeUsed && v.change === 'straight' && v.z < -30 && v.z > -105);
+    const candidates = this.vehicles.filter(v => v.active && v.type !== 'bike' && v.type !== 'rampTruck' && !v.brakeUsed && v.change === 'straight' && v.z < -30 && v.z > -105);
     if (!candidates.length) return;
     const v = candidates[Math.floor(this.random() * candidates.length)];
     v.braking = true; v.brakeUsed = true; v.brakeTime = C.brakeDuration;

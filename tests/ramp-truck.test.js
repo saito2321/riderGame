@@ -48,6 +48,18 @@ test('ramp truck spawns after the opening stretch',()=>{
   s.spawnWave=Simulation.prototype.spawnWave.bind(s);s.spawnWave();
   assert.ok(s.vehicles.some(v=>v.active&&v.type==='rampTruck'));
 });
+test('ramp trucks neither brake nor change lanes',()=>{
+  const s=empty(3.5),truck=s.spawnVehicle('rampTruck',0,-80);
+  s.score=C.brakeStartScore;s.random=()=>0;
+  s.scheduleBrake(C.brakeInterval);
+  assert.equal(truck.braking,false);
+  assert.equal(truck.brakeUsed,false);
+  assert.equal(s.changeIsSafe(truck,3.5),false);
+  truck.change='queued';truck.toX=3.5;truck.plannedDirection=1;truck.z=-80;
+  s.scheduleChange(C.step);
+  assert.equal(truck.change,'queued');
+  assert.equal(truck.x,0);
+});
 test('entering the ramp from behind jumps and awards 500 points once',()=>{
   const s=empty(),halfZ=(VEHICLES.rampTruck.length+C.bikeLength)/2;
   const truck=s.spawnVehicle('rampTruck',0,-halfZ-.1);

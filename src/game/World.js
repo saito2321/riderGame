@@ -38,7 +38,7 @@ function shadow(parent,w,d) {
 function vehicle(type, color) {
   const g = new THREE.Group(), {width:w,length:d,height:h} = VEHICLES[type];
   const contact=shadow(g,w*1.15,d*1.03);
-  box(g,'#263b40',0,.44,0,w*.92,.35,d*.92);
+  box(g,'#263b40',0,.44,type==='rampTruck'?-d*.1:0,w*.92,.35,type==='rampTruck'?d*.75:d*.92);
   if(type!=='rampTruck'){
     panel(g,color,0,.76,0,w,.66,d);
     box(g,'#252e36',0,.46,d*.49,w*.88,.16,.12);
@@ -65,7 +65,6 @@ function vehicle(type, color) {
     const ramp=box(g,'#f5a238',0,1.35,d*.15,w*.96,.16,d*.7);ramp.rotation.x=.28;
     for(const side of [-1,1]){
       const rail=box(g,'#fff0a4',side*w*.49,1.42,d*.15,.07,.1,d*.7);rail.rotation.x=.28;
-      box(g,'#bd462d',side*w*.47,.8,d*.24,.1,.55,d*.44);
     }
     for(const z of [d*.05,d*.22,d*.39]){
       const stripe=box(g,'#fff1ae',0,1.35-Math.sin(.28)*(z-d*.15),z,w*.62,.025,.1);stripe.rotation.x=.28;
@@ -93,12 +92,14 @@ function vehicle(type, color) {
   for(const x of [-w*.49,w*.49]) for(const z of [-d*.31,d*.31]) wheels.push(wheel(g,x,.45,z,.43,.2));
   const brakeLamps=[];
   for(const x of [-w*.3,w*.3]) {
-    box(g,'#8f3f37',x,.85,d*.505,w*.19,.17,.06);
-    const brakeLamp=box(g,'#ff3025',x,.85,d*.517,w*.24,.22,.035); brakeLamp.material=material('#ff3025',true); brakeLamp.visible=false; brakeLamps.push(brakeLamp);
+    if(type!=='rampTruck'){
+      box(g,'#8f3f37',x,.85,d*.505,w*.19,.17,.06);
+      const brakeLamp=box(g,'#ff3025',x,.85,d*.517,w*.24,.22,.035); brakeLamp.material=material('#ff3025',true); brakeLamp.visible=false; brakeLamps.push(brakeLamp);
+    }
     const head = box(g,'#fff4bd',x,.85,-d*.505,w*.22,.18,.06); head.material=material('#fff4bd',true);
   }
   const lamps=[];
-  for(const dir of [-1,1]) for(const z of [-d*.51,d*.51]) {
+  for(const dir of [-1,1]) for(const z of type==='rampTruck'?[]:[-d*.51,d*.51]) {
     const lamp=box(g,'#ffb632',dir*w*.43,1.04,z,.21,.2,.08); lamp.material=material('#ffb632',true); lamp.visible=false; lamps.push({dir,lamp});
   }
   const arrow = new THREE.Group();
