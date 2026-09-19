@@ -4,7 +4,7 @@ export const CONFIG = Object.freeze({
   bikeLean: .56, reducedBikeLean: .28, leanInTime: .035, leanOutTime: .065,
   leanSpeedDeadzone: .08, minimumMovingBank: .55,
   health: 2, invincible: 1.25, reviveInvincible: 2, vehicleSpeed: 12,
-  baseSpeed: 80 / 3.6, minSpeed: 80 / 3.6, maxBaseSpeed: 300 / 3.6, maxSpeed: 88,
+  baseSpeed: 80 / 3.6, minSpeed: 80 / 3.6, maxBaseSpeed: 999 / 3.6, maxSpeed: 999 / 3.6,
   distanceStep: 300, speedIncrement: 5 / 3.6, baseAcceleration: 10 / 3.6,
   comboTime: 3, maxTurbo: 8, spawnZ: -155, poolSize: 18,
   coinBoost: 1.2, veryCloseBoost: 2.4, boostDecay: 2,

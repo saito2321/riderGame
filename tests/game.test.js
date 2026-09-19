@@ -85,9 +85,10 @@ test('speed follows distance, reaches cap, and turbo decays in 1 second',()=>{
   const s=empty();s.score=40000;advance(s,.1);close(s.baseSpeed,80/3.6);
   s.distance=297;advance(s,.1);close(s.baseSpeed,80/3.6);
   s.distance=300;advance(s,.5);close(s.baseSpeed,85/3.6);
-  s.distance=13200;advance(s,22);close(s.baseSpeed,300/3.6);
-  s.combo=20;s.lastNear=s.time;s.turbo=8;advance(s,.1);close(s.speed,88);
-  s.breakCombo();advance(s,1);close(s.turbo,0);assert.ok(s.speed<=88);
+  s.distance=13500;s.baseSpeed=300/3.6;advance(s,.5);close(s.baseSpeed,305/3.6);
+  s.distance=55200;s.baseSpeed=995/3.6;advance(s,.5);close(s.baseSpeed,999/3.6);
+  s.combo=20;s.lastNear=s.time;s.turbo=8;advance(s,.1);close(s.speed,999/3.6);
+  s.breakCombo();advance(s,1);close(s.turbo,0);assert.ok(s.speed<=999/3.6);
 });
 test('crash recovery never lowers actual speed below 80 km/h',()=>{
   const s=empty();s.crashRecovery=1.5;s.step(C.step,{target:0,axis:0});close(s.speed,C.minSpeed);
