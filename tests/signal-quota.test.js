@@ -24,6 +24,24 @@ test('quota survives a blocked spawn instead of quietly becoming a straight vehi
  const original=s.hasSafePath;s.hasSafePath=()=>false;s.spawnWave();assert.equal(s.unsignaledTraffic,9);assert.equal(s.vehicles.filter(v=>v.active).length,0);
  s.hasSafePath=original;s.spawnWave();assert.ok(s.vehicles.some(v=>v.active&&v.change==='queued'));
 });
+test('two-lane changes unlock only after 10,000 points and cross both lanes',()=>{
+ for(const score of [9999,10000,10001]){
+  const s=new Simulation(1);s.vehicles.forEach(v=>v.active=false);
+  s.score=score;s.unsignaledTraffic=signalEvery(score)-1;s.random=()=>0;
+  s.spawnWave();
+  const car=s.vehicles.find(v=>v.active&&v.change==='queued');assert.ok(car);
+  assert.equal(car.x,-3.5);
+  assert.equal(car.toX,score>10000?3.5:0);
+  if(score<=10000)continue;
+  car.z=car.signalZ;s.scheduleChange(C.step);
+  assert.equal(car.change,'signaling');
+  for(let i=0;i<Math.ceil((car.warning+1)/C.step);i++)s.updateVehicle(car,C.step);
+  assert.equal(car.change,'changing');
+  assert.ok(Math.abs(car.x)<.05,`midway: ${car.x}`);
+  for(let i=0;i<Math.ceil(1/C.step)+2;i++)s.updateVehicle(car,C.step);
+  assert.equal(car.change,'straight');assert.equal(car.x,3.5);
+ }
+});
 test('lane change begins before the player passes at 150 and 300 km/h',()=>{
  for(const kmh of [150,300]){
   const s=new Simulation(1);s.vehicles.forEach(v=>v.active=false);s.coins.clear();
@@ -40,13 +58,14 @@ test('lane change begins before the player passes at 150 and 300 km/h',()=>{
 });
 test('reserved signals actually start and finish over multiple seeded full runs',()=>{
  for(const score of [0,35000])for(const seed of [1,7,12]){
-  const s=new Simulation(seed);s.invincible=10000;let started=0,cancelled=0;
+  const s=new Simulation(seed);s.invincible=10000;let started=0,cancelled=0,doubles=0;
   const original=s.updateVehicle.bind(s);s.updateVehicle=(v,dt)=>{const before=v.change;original(v,dt);if(before==='signaling'&&v.change==='straight')cancelled++;};
   const seen=new Set();
   for(let i=0;i<120*180;i++){
    s.score=score;s.step(C.step,{target:-1.75,axis:0});
-   for(const v of s.vehicles)if(v.active&&v.changeUsed&&!seen.has(v.id)){seen.add(v.id);started++;}
+   for(const v of s.vehicles)if(v.active&&v.changeUsed&&!seen.has(v.id)){seen.add(v.id);started++;if(Math.abs(v.toX-v.fromX)>C.laneWidth+1e-9)doubles++;}
   }
   assert.ok(started>=4,`score ${score}, seed ${seed}: ${started} signals`);assert.equal(cancelled,0);
+  if(score>10000)assert.ok(doubles>0,`score ${score}, seed ${seed}: no two-lane changes`);
  }
 });

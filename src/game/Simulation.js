@@ -53,8 +53,10 @@ export class Simulation {
     this.revived = true; this.bank = 0; this.bankLateralSpeed = 0; this.dead = false; this.health = 1; this.hitStop = 0;
     this.invincible = C.reviveInvincible; this.crashRecovery = 0; this.jumpTime = 0; this.jumpDuration = 0; this.jumpVehicleId = null; this.breakCombo(true); this.safeZone(); return true;
   }
-  // Reserve the full swept width of lane changes. Verify an actual smoothed steering
-  // trajectory after 1s reaction, against the full envelope of relative speeds.
+  // Verify a smoothed steering trajectory after 1s reaction. Single-lane
+  // changes use the full relative-speed envelope. Two-lane changes follow the
+  // timed car trajectory at the current speed so their full-road sweep does
+  // not block every possible path for the entire approach.
   // Conservative acceptance can reject a playable wave; rejection means less traffic.
   hasSafePath(extra = []) {
     const obstacles = [...this.vehicles.filter(v => v.active), ...extra];
@@ -68,10 +70,23 @@ export class Simulation {
         const oldX = x; if (t > 1) x = steer(x, target, .05);
         for (const v of obstacles) {
           const halfZ = (v.length + C.bikeLength) / 2;
-          if (v.z + maxClosingSpeed * t < -halfZ || v.z + minClosingSpeed * (t - .05) > halfZ) continue;
+          const twoLane = v.change !== 'straight' && Math.abs(v.toX - v.x) > C.laneWidth + 1e-9;
+          if (twoLane) {
+            const closing = Math.max(1, this.speed - (v.trafficSpeed ?? C.vehicleSpeed));
+            if (v.z + closing * t < -halfZ || v.z + closing * (t - .05) > halfZ) continue;
+          } else if (v.z + maxClosingSpeed * t < -halfZ || v.z + minClosingSpeed * (t - .05) > halfZ) continue;
           const halfX = (v.width + C.bikeWidth) / 2 + .15;
-          const min = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x) - halfX;
-          const max = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x) + halfX;
+          let min = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x) - halfX;
+          let max = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x) + halfX;
+          if (twoLane) {
+            const closing = Math.max(1, this.speed - (v.trafficSpeed ?? C.vehicleSpeed));
+            const signalAt = v.change === 'queued' ? Math.max(0, ((v.signalZ ?? -105) - v.z) / closing) : 0;
+            const warningLeft = v.change === 'queued' ? v.plannedWarning ?? warningSeconds(this.score) : v.change === 'signaling' ? Math.max(0, v.warning - v.changeTime) : 0;
+            const progress = v.change === 'changing' ? (v.changeTime + t) / 2 : (t - signalAt - warningLeft) / 2;
+            const origin = v.fromX ?? v.x;
+            const position = origin + (v.toX - origin) * smoothstep(progress);
+            min = position - halfX; max = position + halfX;
+          }
           if (Math.max(oldX, x) >= min && Math.min(oldX, x) <= max) { safe = false; break; }
         }
       }
@@ -125,17 +140,18 @@ export class Simulation {
       const timing = due ? this.laneChangeTiming() : null;
       const spawnZ = timing?.spawnZ ?? C.spawnZ;
       const r = this.random();
+      const twoLaneChange = due && this.score > 10000 && r < .5;
       const type = due ? 'car' : this.distance >= 300 && r < .15 ? 'rampTruck' : this.distance >= 3000 && r < .18 ? 'bus' : this.distance >= 1000 && r < .4 ? 'truck' : 'car';
       let spawned = false;
       for (let option = 0; option < (due ? 3 : 1); option++) {
         const x = lanes[(first + i + option) % 3];
         const candidate = { ...VEHICLES[type], type, x, z: spawnZ, change: 'straight' };
-        const dirs = due ? (x > 0 ? [-1, 1] : [1, -1]) : [0];
-        for (const direction of dirs) {
-          const toX = x + direction * C.laneWidth;
+        const offsets = due ? [...(twoLaneChange && x !== 0 ? [-Math.sign(x) * 2] : []), ...(x > 0 ? [-1, 1] : [1, -1])] : [0];
+        for (const offset of offsets) {
+          const toX = x + offset * C.laneWidth;
           if (Math.abs(toX) > C.laneWidth) continue;
           if (due) {
-            candidate.change = 'queued'; candidate.toX = toX;
+            candidate.change = 'queued'; candidate.toX = toX; candidate.signalZ = timing.signalZ; candidate.plannedWarning = timing.warning;
             const horizon = 20 / Math.max(1, this.speed - C.vehicleSpeed) + timing.warning + 2;
             if (!this.changeTrafficIsClear(candidate, toX, horizon)) continue;
           }
@@ -147,7 +163,7 @@ export class Simulation {
           const v = this.spawnVehicle(type, x, spawnZ);
           if (!v) return;
           if (due) {
-            Object.assign(v, {change:'queued', fromX:x, toX, plannedDirection:direction, signalZ:timing.signalZ, plannedWarning:timing.warning});
+            Object.assign(v, {change:'queued', fromX:x, toX, plannedDirection:Math.sign(offset), signalZ:timing.signalZ, plannedWarning:timing.warning});
             this.unsignaledTraffic = 0;
           } else this.unsignaledTraffic++;
           spawned = true; break;
