@@ -155,7 +155,7 @@ export class World {
       const variants={}; for(const type of Object.keys(VEHICLES)) { const g=vehicle(type,['#aebbc8','#802f42','#35657d','#d2a448','#38464f'][slot%5]); g.visible=false; this.scene.add(g); variants[type]=g; } const bike=trafficBike.clone(true);bike.visible=false;this.scene.add(bike);variants.bike=bike;return variants;
     });
     this.particles=Array.from({length:28},()=>{const mesh=new THREE.Mesh(sphereGeometry,material('#ffc369',true));mesh.visible=false;this.scene.add(mesh);return {mesh,life:0,vx:0,vy:0,vz:0};});
-    this.effectTime=0; this.lastTime=0; this.lastDistance=0; this.smokeClock=0; this.pixelRatio=Math.min(devicePixelRatio,this.lowPower?1:1.5); this.slowFrames=0;
+    this.effectTime=0; this.lastTime=0; this.lastDistance=0; this.smokeClock=0; this.crashElapsed=0; this.pixelRatio=Math.min(devicePixelRatio,this.lowPower?1:1.5); this.slowFrames=0;
     if(new URLSearchParams(location.search).has('renderStats')){
       this.stats=document.createElement('output');this.stats.style.cssText='position:absolute;bottom:12px;left:8px;z-index:4;background:#101c2ddd;color:white;font:10px monospace;padding:6px;pointer-events:none';canvas.parentElement.append(this.stats);this.statsTime=0;this.statsFrames=0;
     }
@@ -187,16 +187,23 @@ export class World {
     damage.paint.material=sim.health===C.health?damage.healthyPaint:material('#7d8870');
     damage.scratches.visible=sim.health<C.health;damage.frontLight.visible=sim.health>1;
     damage.tail.rotation.z=sim.health<2?.18:0;
-    // Render the fixed-step movement pose; damage never adds an idle body wobble.
-    damage.visual.rotation.z=sim.dead?-.8:sim.bank*(settings.reduceMotion?C.reducedBikeLean:C.bikeLean);
+    // The simulation freezes on death, so the fall and spin use render time.
+    this.crashElapsed=sim.dead?Math.min(1.6,this.crashElapsed+frameDt):0;
+    const fall=Math.min(1,this.crashElapsed/(settings.reduceMotion ? .45 : .65));
+    const fallEase=fall*fall*(3-2*fall);
+    const spin=Math.min(1,Math.max(0,(this.crashElapsed-.15)/1.45));
+    const spinEase=spin*spin*(3-2*spin);
+    damage.visual.rotation.z=sim.dead?-Math.PI*.46*fallEase:sim.bank*(settings.reduceMotion?C.reducedBikeLean:C.bikeLean);
+    damage.visual.position.y=sim.dead ? .42*fallEase : 0;
+    this.bike.rotation.y=sim.dead&&!settings.reduceMotion?spinEase*Math.PI*3.2:0;
     const jumpPhase=sim.jumpTime>0?1-sim.jumpTime/sim.jumpDuration:0;
     const flightHeight=jumpPhase<.3?Math.sin(Math.PI*jumpPhase/.6):jumpPhase>.7?Math.sin(Math.PI*(1-jumpPhase)/.6):1;
-    this.bike.position.y=sim.dead?-.18:jumpPhase?flightHeight*3.4:0;
+    this.bike.position.y=sim.dead?0:jumpPhase?flightHeight*3.4:0;
     damage.groundShadow.position.y=.055-this.bike.position.y;
     damage.visual.rotation.x=jumpPhase?Math.sin(Math.PI*2*jumpPhase)*.16:0;
     damage.flame.visible=sim.turbo>.05 && !sim.dead;damage.flame.scale.y=.6+sim.turbo*.24;
     for(const wheel of damage.wheels)wheel.rotation.x=-sim.distance*2;
-    this.bike.visible=sim.invincible<=0 || settings.reduceMotion || Math.floor(sim.time*8)%2===0;
+    this.bike.visible=sim.dead || sim.invincible<=0 || settings.reduceMotion || Math.floor(sim.time*8)%2===0;
     for(let i=0;i<this.traffic.length;i++) {
       const v=sim.vehicles[i],variants=this.traffic[i];
       for(const [type,g] of Object.entries(variants)) g.visible=v.active&&type===v.type;

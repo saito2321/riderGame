@@ -68,6 +68,11 @@ test('two collisions end the ride; death freezes scoring; revive works only once
   const s=empty();assert.equal(s.health,2);const hitCar=s.spawnVehicle('car',0,-3.3);advance(s,.5);assert.equal(s.health,1);assert.equal(s.dead,false);assert.ok(s.invincible>0);assert.equal(hitCar.active,true);
   s.invincible=0;s.hitStop=0;s.spawnVehicle('car',0,-3.3);advance(s,.5);assert.ok(s.dead);assert.equal(s.health,0);
   const score=s.score,distance=s.distance;advance(s,5);assert.equal(s.score,score);assert.equal(s.distance,distance);
+  const passing=s.spawnVehicle('car',3.5,-100),coin=s.coins.items[0];Object.assign(coin,{active:true,x:3.5,z:-30});
+  const vehicleZ=passing.z,coinZ=coin.z,speed=s.speed,time=s.time;
+  s.advanceCrash(.5);
+  close(s.distance,distance+speed*.5);close(s.time,time+.5);close(passing.z,vehicleZ+(speed-passing.trafficSpeed)*.5);close(coin.z,coinZ+speed*.5);
+  assert.equal(s.score,score);assert.equal(s.events.length,0);
   assert.ok(s.revive());assert.equal(s.health,1);assert.equal(s.score,score);assert.equal(s.combo,0);assert.equal(s.turbo,0);assert.equal(s.invincible,2);
   s.dead=true;assert.equal(s.revive(),false);s.reset(12);assert.equal(s.revived,false);assert.equal(s.health,2);assert.equal(s.score,0);
 });

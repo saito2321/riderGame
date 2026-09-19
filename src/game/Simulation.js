@@ -335,4 +335,21 @@ export class Simulation {
     this.updateGapTraffic(dt);
     if(!this.dead&&this.hitStop<=0)this.coins.update(this,dt,oldX);
   }
+  advanceCrash(dt) {
+    if (!this.dead || dt <= 0) return;
+    this.events.length = 0;
+    const traveled = this.speed * dt;
+    this.time += dt;
+    this.distance += traveled;
+    for (const v of this.vehicles) {
+      if (!v.active) continue;
+      v.z += (this.speed - v.trafficSpeed) * dt;
+      if (v.z > 24) v.active = false;
+    }
+    for (const coin of this.coins.items) {
+      if (!coin.active) continue;
+      coin.z += traveled;
+      if (coin.z > 8) coin.active = false;
+    }
+  }
 }

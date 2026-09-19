@@ -9,7 +9,7 @@ const platform=new LocalAdapter(),save=platform.load(),sim=new Simulation();
 const audio=new AudioSystem(save.settings);
 const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal');
 const input=new Input(canvas,()=>sim.x);
-let strings={},world,state='title',paused=false,remaining=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
+let strings={},world,state='title',paused=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=Number(new URLSearchParams(location.search).get('seed')||12345)>>>0;
 const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString('en-US');
@@ -79,7 +79,7 @@ async function startRun(first=true){
   try{
     if(!world){const {World}=await import('./game/World.js');world=new World(canvas);}
     rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;recordAtStart=save.bestScore;
-    sim.reset(seed);input.clear();clearEffects();
+    sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
     $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.resize();world.render(sim,save.settings);updateHUD();
     if(first&&!save.tutorialCompleted){state='tutorial';setActive();showTutorial();}else countdown();
   }catch(error){console.error(error);state='title';openError('error.title','error.detail');}
@@ -123,7 +123,7 @@ function updateHUD(){
 function frame(timestamp){
   requestAnimationFrame(frame);
   const dt=previousTime?Math.min((timestamp-previousTime)/1000,.1):0;previousTime=timestamp;
-  if(paused||!world||!['playing','countdown','tutorial'].includes(state))return;
+  if(paused||!world||!['playing','countdown','tutorial','crashing'].includes(state))return;
   if(state==='countdown'){
     const old=Math.ceil(remaining-.45);remaining-=dt;
     if(Math.ceil(remaining-.45)!==old)audio.effect('count');
@@ -138,12 +138,16 @@ function frame(timestamp){
         if(event.type==='jump'){showToast(`${t('hud.jump')} +${event.points}`);audio.effect('jump');}
         if(event.type==='speed')showToast(t('hud.speedUp'));
         if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(save.settings.haptics&&navigator.vibrate)navigator.vibrate(60);}
-        if(event.type==='dead'){saveNow();state='result';setActive();audio.pause();renderPanel();break;}
+        if(event.type==='dead'){saveNow();state='crashing';crashElapsed=0;setActive();audio.pause();overlay.hidden=true;break;}
       }
       if(state!=='playing'){accumulator=0;break;}
     }
     platform.record(sim);platform.save();
     if(state==='playing')audio.update(sim,dt);
+  }else if(state==='crashing'){
+    sim.advanceCrash(dt);
+    crashElapsed+=dt;
+    if(crashElapsed>=(save.settings.reduceMotion ? .45 : 1.6)){state='result';renderPanel();}
   }
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)$('#toast').classList.remove('visible');}
   impactTimer=Math.max(0,impactTimer-dt);$('#impact').style.opacity=save.settings.reduceMotion?0:impactTimer*1.7;
