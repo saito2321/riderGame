@@ -9,7 +9,7 @@ const platform=new PlatformAdapter(),sim=new Simulation();
 let save=platform.data,audio;
 const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal');
 const input=new Input(canvas,()=>sim.x);
-let strings={},world,state='title',paused=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
+let strings={},world,state='title',paused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=Number(new URLSearchParams(location.search).get('seed')||12345)>>>0;
 const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString('en-US');
@@ -24,7 +24,10 @@ function setActive(){input.setEnabled(state==='playing'&&!paused);$('#pause-butt
 function panel(title){overlay.replaceChildren();overlay.hidden=false;const p=document.createElement('div');p.className='game-panel';p.setAttribute('role','dialog');p.setAttribute('aria-modal','true');p.setAttribute('aria-labelledby','game-panel-title');const heading=element('h2',title);heading.id='game-panel-title';p.append(heading);overlay.append(p);return p;}
 function renderPanel(){
   overlay.hidden=true;
-  if(paused){const p=panel(t('ui.paused'));p.append(button('ui.resume',resume));p.querySelector('button').focus();return;}
+  if(paused){
+    if(pauseConfirming){const p=panel(t('pause.titleConfirm'));p.append(element('p',t('pause.titleDetail'),'modal-copy'),button('pause.returnTitle',goTitle),button('revive.cancel',()=>{pauseConfirming=false;renderPanel();},true));p.querySelector('button').focus();return;}
+    const p=panel(t('ui.paused'));p.append(button('ui.resume',resume),button('ui.title',()=>{pauseConfirming=true;renderPanel();},true));p.querySelector('button').focus();return;
+  }
   if(state==='countdown'){
     overlay.hidden=false;overlay.replaceChildren(element('strong',remaining>.45?String(Math.ceil(remaining-.45)):t('ui.go'),'countdown'));return;
   }
@@ -49,10 +52,10 @@ function renderPanel(){
 }
 function pause(){
   if(paused||!['playing','countdown','reward'].includes(state))return;
-  paused=true;input.setEnabled(false);audio.pause();saveNow();accumulator=0;renderPanel();
+  paused=true;pauseConfirming=false;input.setEnabled(false);audio.pause();saveNow();accumulator=0;renderPanel();
 }
 function resume(){
-  paused=false;previousTime=0;accumulator=0;if(['playing','countdown'].includes(state))audio.unlock();
+  paused=false;pauseConfirming=false;previousTime=0;accumulator=0;if(['playing','countdown'].includes(state))audio.unlock();
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
   setActive();renderPanel();if(state==='playing')canvas.focus();
 }
@@ -69,7 +72,7 @@ function finishReward(earned){
   else{state='result';renderPanel();}
 }
 function goTitle(){
-  rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;state='title';input.setEnabled(false);audio.pause();saveNow();
+  rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;pauseConfirming=false;state='title';input.setEnabled(false);audio.pause();saveNow();
   stage.hidden=true;$('.title-screen').hidden=false;$('.game-shell').classList.remove('in-game');overlay.hidden=true;$('#play').focus();
 }
 async function startRun(first=true){
@@ -78,7 +81,7 @@ async function startRun(first=true){
   await audio.unlock();
   try{
     if(!world){const {World}=await import('./game/World.js');world=new World(canvas);}
-    rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;recordAtStart=save.bestScore;
+    rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;pauseConfirming=false;recordAtStart=save.bestScore;
     sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
     $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.resize();world.render(sim,save.settings);updateHUD();
     if(first&&!save.tutorialCompleted){state='tutorial';setActive();showTutorial();}else countdown();
@@ -169,7 +172,7 @@ async function init(){
       if(e.shiftKey&&(document.activeElement===first||!overlay.contains(document.activeElement))){e.preventDefault();last?.focus();}
       else if(!e.shiftKey&&(document.activeElement===last||!overlay.contains(document.activeElement))){e.preventDefault();first?.focus();}
     }
-    if(e.key==='Escape'&&!modal.open){if(paused)resume();else pause();}
+    if(e.key==='Escape'&&!modal.open){if(paused&&pauseConfirming){pauseConfirming=false;renderPanel();}else if(paused)resume();else pause();}
     if(state==='title'&&!modal.open&&!e.repeat&&(e.key==='Enter'||e.code==='Space')&&(document.activeElement===document.body||document.activeElement===document.documentElement)){e.preventDefault();startRun();}
   });
   canvas.addEventListener('renderer-lost',()=>{pause();saveNow();openError('error.context','error.contextDetail');});
