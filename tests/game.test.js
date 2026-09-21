@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {Simulation,interval} from '../src/game/Simulation.js';
 import {CONFIG as C,VEHICLES,steer,multiplier,warningSeconds,nearPoints} from '../src/game/config.js';
 import {LocalAdapter} from '../src/platform/LocalAdapter.js';
+import {PlatformAdapter} from '../src/platform/PlatformAdapter.js';
 const close=(a,b,epsilon=1e-7)=>assert.ok(Math.abs(a-b)<epsilon,`${a} != ${b}`);
 function empty(){const s=new Simulation(12);s.vehicles.forEach(v=>v.active=false);s.spawnWave=()=>{};return s;}
 function advance(s,seconds,target=s.x){for(let i=0;i<Math.round(seconds/C.step);i++)s.step(C.step,{target,axis:0});}
@@ -181,4 +182,26 @@ test('save write failure keeps dirty data and retries on next request',()=>{
   const storage=memory();let fail=true;const original=storage.setItem;storage.setItem=(k,v)=>{if(fail)throw Error('quota');original(k,v);};
   const p=new LocalAdapter(storage);p.load();p.record({score:70,distance:20,bestCombo:3});p.save(true);assert.equal(p.saveFailed,true);assert.equal(p.dirty,true);
   fail=false;p.save(true);assert.equal(p.saveFailed,false);assert.equal(new LocalAdapter(storage).load().bestScore,70);
+});
+test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
+  const calls=[];
+  const sdk={IN_PLAYABLES_ENV:true,
+    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:1,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,settings:{music:false,sfx:true,haptics:true,reduceMotion:false}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
+    engagement:{sendScore:async score=>calls.push(['score',score.value])},
+    ads:{requestRewardedAd:async id=>{calls.push(['reward',id]);return true;},requestInterstitialAd:async()=>calls.push('interstitial')},
+    system:{isAudioEnabled:()=>false,onAudioEnabledChange:()=>()=>{},onPause:()=>()=>{},onResume:()=>()=>{}}};
+  const p=new PlatformAdapter({sdk});p.firstFrameReady();const data=await p.load();assert.equal(data.bestScore,80);assert.equal(p.isAudioEnabled(),false);
+  p.record({score:125,distance:60,bestCombo:5});await p.save(true);assert.deepEqual(calls.slice(0,4),['first','load',['score',125],['save',125]]);
+  assert.equal(await p.requestInterstitial(),true);assert.equal(await p.requestRevive(),true);assert.ok(calls.some(call=>Array.isArray(call)&&call[0]==='reward'&&call[1]==='revive-one-health'));
+  p.gameReady();assert.equal(calls.at(-1),'ready');
+});
+test('non-playables adapter keeps using localStorage and local revive flow',async()=>{
+  const storage=memory(),sdk={IN_PLAYABLES_ENV:false};const p=new PlatformAdapter({sdk,storage});await p.load();
+  p.record({score:45,distance:12,bestCombo:2});p.save(true);assert.equal(JSON.parse(storage.getItem('lsr.save.v1')).bestScore,45);
+  const revive=p.requestRevive();p.resolveRevive(true);assert.equal(await revive,true);assert.equal(await p.requestInterstitial(),false);
+});
+test('failed YouTube load cannot overwrite an unknown cloud save',async()=>{
+  let saves=0;const sdk={IN_PLAYABLES_ENV:true,game:{loadData:async()=>{throw Error('offline');},saveData:async()=>{saves++;}},engagement:{},ads:{},system:{}};
+  const p=new PlatformAdapter({sdk});await p.load();p.record({score:500,distance:20,bestCombo:2});await p.save(true);
+  assert.equal(p.writable,false);assert.equal(p.saveFailed,true);assert.equal(saves,0);
 });

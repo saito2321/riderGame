@@ -11,7 +11,7 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-http://localhost:5173 を開いてください。Three.jsはnpmから取得して `src/vendor/` にコピーします。ランタイムにCDN、外部フォント、YouTube SDK、広告サービスへの通信はありません。既に同梱済みのファイルがあれば、追加インストールなしでも `npm.cmd run dev` で起動できます。
+http://localhost:5173 を開いてください。Three.jsはnpmから取得して `src/vendor/` にコピーします。YouTube Playables SDKは公式URLからゲームコードより先に読み込みますが、ゲームルーム外ではLocalStorageへ分岐し、広告APIは呼びません。既に同梱済みのファイルがあれば、追加インストールなしでも `npm.cmd run dev` で起動できます。
 
 ## 遊び方
 
@@ -34,19 +34,20 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 - 交通密度と初期配置は、ローカルでコンボを試しやすい試作バランスです。端末ごとの視認性や遮蔽を含む全条件の品質保証は、継続プレイテストが必要です。
 - 簡易BGM、エンジン、得点・衝突音をWeb Audioで生成します。音声はユーザー操作後だけ開始します。
 
-## ローカル用Platform Adapter
+## Platform Adapter
 
-`src/platform/LocalAdapter.js` に環境依存処理を分離しています。
+`src/platform/PlatformAdapter.js` でYouTubeゲームルームと通常ブラウザを判定し、`src/platform/LocalAdapter.js` にゲームルーム外の保存処理を分離しています。
 
-| 本番で必要な機能 | ローカルの代替 |
-|---|---|
-| セーブ読込・保存 | localStorageの `lsr.save.v1` |
-| Best Score送信 | 通信せず、同じローカルデータへ保存 |
-| Pause / Resume | Visibility / blurによる停止と明示的なRESUME |
-| 広告復活 | 結果画面のREVIVE (LOCAL) → GRANT REVIVE / CANCEL |
-| 音声制御 | ローカル設定とWeb Audio |
+| 機能 | YouTubeゲームルーム | ゲームルーム外（GitHub Pages / localhost） |
+|---|---|---|
+| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v1` |
+| ベストスコア | `ytgame.engagement.sendScore` | LocalStorageへ保存 |
+| Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止と明示的なRESUME |
+| 復活 | `requestRewardedAd('revive-one-health')` | REVIVE (LOCAL) → GRANT REVIVE / CANCEL |
+| インタースティシャル広告 | ゲームオーバー後に `requestInterstitialAd()` | 呼び出さない |
+| 音声制御 | YouTubeの音声設定とゲーム内の個別設定 | ゲーム内設定とWeb Audio |
 
-復活はGRANT REVIVEを選んだ場合だけ体力1で成立し、1ラン1回です。復活中のゲーム進行は停止し、成功後に安全地帯とカウントダウンを挟みます。キャンセル時は結果画面へ戻ります。YouTube SDKや実際の広告は呼び出しません。
+ゲームルームではリワード広告の結果が `true` の場合だけ、ゲームルーム外ではGRANT REVIVEを選んだ場合だけ体力1で復活します。復活は1ラン1回で、成功後に安全地帯とカウントダウンを挟みます。広告の失敗やキャンセル時は結果画面へ戻ります。
 
 Best Score、Best Distance、Best Combo、チュートリアル完了と設定を保存します。旧 `lsr.bestScore` と `lsr.title.reduceMotion` は初回読込時に移行します。不正データは上書きせずセッション内でプレイできます。保存制限や失敗時は結果画面・optionに表示します。
 
@@ -63,7 +64,7 @@ npm.cmd run build
 
 `dist/` にローカルアセットを含む静的配布用フォルダーができます。HTTPサーバーで配信してください。WebGL 2対応ブラウザーが必要です。
 
-主要ファイル：`src/main.js`（画面・状態遷移）、`src/game/Simulation.js`（ゲームロジック）、`src/game/World.js`（Three.js描画）、`src/game/Input.js`（入力）、`src/game/config.js`（基本値）、`src/platform/LocalAdapter.js`（環境依存処理）、`locales/en.json`（英語UI）。
+主要ファイル：`src/main.js`（画面・状態遷移）、`src/game/Simulation.js`（ゲームロジック）、`src/game/World.js`（Three.js描画）、`src/game/Input.js`（入力）、`src/game/config.js`（基本値）、`src/platform/PlatformAdapter.js`（SDK分岐）、`src/platform/LocalAdapter.js`（通常ブラウザ保存）、`locales/en.json`（英語UI）。
 
 Three.jsのライセンスは `src/vendor/THREE-LICENSE.txt` に同梱しています。
 

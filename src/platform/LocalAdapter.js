@@ -1,17 +1,21 @@
 const KEY = 'lsr.save.v1';
-const defaults = () => ({ schemaVersion: 1, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false,
+export const createDefaultSave = () => ({ schemaVersion: 1, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false,
   settings: { music: true, sfx: true, haptics: true, reduceMotion: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches } });
+export function mergeSave(target, saved) {
+  if (saved.schemaVersion !== 1 || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)) throw new Error('Invalid save');
+  for (const k of ['bestScore','bestDistance','bestCombo']) target[k] = saved[k];
+  target.tutorialCompleted = saved.tutorialCompleted === true;
+  for (const k of Object.keys(target.settings)) if (typeof saved.settings?.[k] === 'boolean') target.settings[k] = saved.settings[k];
+  return target;
+}
 export class LocalAdapter {
-  constructor(storage) { try { this.storage = storage ?? globalThis.localStorage; } catch {} this.data = defaults(); this.writable = true; this.saveFailed = false; this.lastSave = 0; this.dirty = false; }
+  constructor(storage) { try { this.storage = storage ?? globalThis.localStorage; } catch {} this.data = createDefaultSave(); this.writable = true; this.saveFailed = false; this.lastSave = 0; this.dirty = false; }
   load() {
     try {
       const raw = this.storage.getItem(KEY);
       if (raw) {
         const saved = JSON.parse(raw);
-        if (saved.schemaVersion !== 1 || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)) throw new Error('Invalid save');
-        for (const k of ['bestScore','bestDistance','bestCombo']) this.data[k] = saved[k];
-        this.data.tutorialCompleted = saved.tutorialCompleted === true;
-        for (const k of Object.keys(this.data.settings)) if (typeof saved.settings?.[k] === 'boolean') this.data.settings[k] = saved.settings[k];
+        mergeSave(this.data, saved);
       } else {
         const oldScore = Number(this.storage.getItem('lsr.bestScore'));
         if (Number.isSafeInteger(oldScore) && oldScore >= 0) this.data.bestScore = oldScore;

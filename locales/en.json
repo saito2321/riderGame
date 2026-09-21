@@ -48,9 +48,12 @@
   "result.near": "NEAR MISSES",
   "result.newBest": "NEW BEST!",
   "revive.offer": "REVIVE (LOCAL)",
+  "revive.adOffer": "WATCH AD TO REVIVE",
   "revive.hint": "One more chance with 1 health. Once per ride.",
   "revive.title": "LOCAL REVIVE TEST",
   "revive.detail": "Choose a result to test the revive flow. No ad will play.",
+  "revive.adTitle": "REVIVE",
+  "revive.adDetail": "Complete the rewarded ad to continue with 1 health.",
   "revive.success": "GRANT REVIVE",
   "revive.cancel": "CANCEL",
   "revive.unearned": "REVIVE CANCELLED",
@@ -59,6 +62,6 @@
   "error.reload": "RELOAD",
   "error.context": "GRAPHICS INTERRUPTED",
   "error.contextDetail": "Reload to restore the 3D renderer. Your best score has been saved when storage is available.",
-  "save.unavailable": "Records are kept for this session. Local saving is unavailable.",
-  "save.failed": "Could not save locally. Your record is kept for this session."
+  "save.unavailable": "Records are kept for this session. Persistent saving is unavailable.",
+  "save.failed": "Could not save. Your record is kept for this session."
 }
