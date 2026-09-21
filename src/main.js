@@ -115,7 +115,7 @@ function updateHUD(){
   $('#health').textContent=sim.health>1?'♥':'';$('#health').ariaLabel=`${t('hud.health')} ${sim.health} / ${C.health}`;
   $('#score').textContent=number(sim.score);$('#hud-best').textContent=`${t('hud.best')} ${number(save.bestScore)}`;
   $('#combo').textContent=sim.combo?`×${sim.combo}`:'—';$('#multiplier').textContent=`×${multiplier(sim.combo).toFixed(1)}`;
-  $('#combo-timer').style.transform=`scaleX(${sim.combo?clamp(1-(sim.time-sim.lastNear)/3,0,1):0})`;
+  $('#combo-timer').style.transform=`scaleX(${sim.combo?clamp(1-(sim.time-sim.lastNear)/C.comboTime,0,1):0})`;
   $('#turbo-label').textContent=sim.turbo>.05?`${t(sim.turbo>=7.99?'hud.maxTurbo':'hud.turbo')} +${sim.turbo.toFixed(1)}`:'';
   $('#speed').textContent=Math.round(sim.speed*3.6);$('#distance').textContent=`${number(sim.distance)} m`;
   stage.classList.toggle('turbo',sim.turbo>.05);

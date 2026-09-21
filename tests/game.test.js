@@ -77,11 +77,11 @@ test('two collisions end the ride; death freezes scoring; revive works only once
   assert.ok(s.revive());assert.equal(s.health,1);assert.equal(s.score,score);assert.equal(s.combo,0);assert.equal(s.turbo,0);assert.equal(s.invincible,2);
   s.dead=true;assert.equal(s.revive(),false);s.reset(12);assert.equal(s.revived,false);assert.equal(s.health,2);assert.equal(s.score,0);
 });
-test('combo uses new count for points and expires only after 3 seconds',()=>{
+test('combo uses new count for points and expires only after 4.5 seconds',()=>{
   assert.equal(multiplier(2),1);assert.equal(multiplier(3),1.5);assert.equal(multiplier(6),2);assert.equal(multiplier(20),4);
   const s=empty();s.combo=2;s.lastNear=0;s.x=1.5;const v=s.spawnVehicle('car',0,3.249);v.nearStarted=true;v.side=1;v.minGap=.3;
   s.step(C.step);assert.equal(s.combo,3);close(s.score-s.distance,150);
-  s.lastNear=s.time-3+C.step;s.step(C.step);assert.equal(s.combo,3);s.step(C.step);assert.equal(s.combo,0);
+  s.lastNear=s.time-C.comboTime+C.step;s.step(C.step);assert.equal(s.combo,3);s.step(C.step);assert.equal(s.combo,0);
 });
 test('simultaneous passes are ordered independently of vehicle pool order',()=>{
   const run=reverse=>{const s=empty();s.combo=2;s.lastNear=0;for(const [x,gap] of [[-1.3,.1],[1.7,.5]]){const v=s.spawnVehicle('car',x,3.249);v.nearStarted=true;v.side=Math.sign(-x);v.minGap=gap;}if(reverse)s.vehicles.reverse();s.step(C.step);return [s.score-s.distance,s.combo,s.nearMisses];};
