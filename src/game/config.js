@@ -7,6 +7,7 @@ export const CONFIG = Object.freeze({
   baseSpeed: 80 / 3.6, minSpeed: 80 / 3.6, maxBaseSpeed: 999 / 3.6, maxSpeed: 999 / 3.6,
   distanceStep: 300, speedIncrement: 5 / 3.6, baseAcceleration: 10 / 3.6,
   comboTime: 4.5, maxTurbo: 8, spawnZ: -155, poolSize: 18,
+  veryCloseGap: .25, nearMissGap: .75,
   coinBoost: 1.2, veryCloseBoost: 2.4, boostDecay: 2,
   rampHalfWidth: 1.15,
   trafficDensity: 1,
@@ -28,7 +29,7 @@ export function steer(x, target, dt, keyboard = false) {
 }
 export const multiplier = combo => combo >= 20 ? 4 : combo >= 10 ? 3 : combo >= 6 ? 2 : combo >= 3 ? 1.5 : 1;
 export const warningSeconds = score => Math.max(1.25, 2.5 - Math.max(0, Math.floor((score - 10000) / 5000)) * .25);
-export const nearPoints = gap => gap <= .18 + 1e-9 ? 300 : 100;
+export const nearPoints = gap => gap <= CONFIG.veryCloseGap + 1e-9 ? 300 : 100;
 export const smoothstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 export function randomGenerator(seed) {
   let state = seed >>> 0;

@@ -286,7 +286,7 @@ export class Simulation {
         const r0 = rel0 + (rel1 - rel0) * overlap[0], r1 = rel0 + (rel1 - rel0) * overlap[1];
         if (!v.nearStarted) { v.nearStarted = true; v.side = Math.sign(r0); if (v.oldZ > -halfZ + 1e-6) v.disqualified = true; }
         const gap0 = Math.abs(r0) - halfX, gap1 = Math.abs(r1) - halfX;
-        if (Math.sign(r0) !== v.side || Math.sign(r1) !== v.side || Math.min(gap0,gap1) <= 0 || Math.max(gap0,gap1) > .6 + 1e-9) v.disqualified = true;
+        if (Math.sign(r0) !== v.side || Math.sign(r1) !== v.side || Math.min(gap0,gap1) <= 0 || Math.max(gap0,gap1) > C.nearMissGap + 1e-9) v.disqualified = true;
         v.minGap = Math.min(v.minGap, gap0, gap1);
       }
       if (v.oldZ <= halfZ && v.z > halfZ && v.gapPassSide && v.gapPassSide === this.gapSide) {

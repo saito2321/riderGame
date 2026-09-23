@@ -36,7 +36,7 @@ test('steering has common 6 m/s cap and respects both road boundaries',()=>{
   for(let i=0;i<600;i++)x=steer(x,-1,C.step,true);close(x,-C.edge);
 });
 test('full passes score once for all vehicle sizes, sides and tiers',()=>{
-  for(const type of Object.keys(VEHICLES))for(const [gap,points] of [[.1,300],[.18,300],[.18001,100],[.25,100],[.5,100]]){
+  for(const type of Object.keys(VEHICLES))for(const [gap,points] of [[.1,300],[.25,300],[.25001,100],[.5,100],[.7,100]]){
     const {s,v}=pass(type,gap);assert.equal(s.nearMisses,1,`${type}/${gap}`);close(s.score-s.distance,points);assert.ok(v.scored);advance(s,2);assert.equal(s.nearMisses,1);
     const left=empty();left.x=-(VEHICLES[type].width+C.bikeWidth)/2-gap;left.spawnVehicle(type,0,-7);advance(left,4);assert.equal(left.nearMisses,1);
   }
@@ -53,10 +53,10 @@ test('very close gives a larger speed burst than a regular near miss',()=>{
   assert.ok(veryClose.speed>regular.speed+2);
 });
 test('gap boundaries and max-speed complete passes remain correct',()=>{
-  assert.equal(nearPoints(.18),300);assert.equal(nearPoints(.18001),100);assert.equal(nearPoints(.35),100);
+  assert.equal(nearPoints(.25),300);assert.equal(nearPoints(.25001),100);assert.equal(nearPoints(.5),100);
   for(const type of Object.keys(VEHICLES)){
-    const {s}=pass(type,.6,{speed:C.maxBaseSpeed});assert.equal(s.nearMisses,1);
-    const outside=pass(type,.601);assert.equal(outside.s.nearMisses,0);
+    const {s}=pass(type,.75,{speed:C.maxBaseSpeed});assert.equal(s.nearMisses,1);
+    const outside=pass(type,.751);assert.equal(outside.s.nearMisses,0);
     const contact=pass(type,0,{invincible:true});assert.equal(contact.s.nearMisses,0);assert.equal(contact.s.health,2);
     const fast=empty();fast.distance=13200;fast.baseSpeed=C.maxBaseSpeed;fast.combo=20;fast.lastNear=0;fast.turbo=8;fast.x=(VEHICLES[type].width+C.bikeWidth)/2+.3;
     fast.spawnVehicle(type,0,-8);advance(fast,1);assert.equal(fast.nearMisses,1);
