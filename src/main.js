@@ -10,7 +10,7 @@ const platform=new PlatformAdapter(),sim=new Simulation();
 let save=platform.data,audio;
 const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal'),soundToggle=$('#sound-toggle');
 const input=new Input(canvas,()=>sim.x);
-let strings={},world,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
+let strings={},world,machinePreview,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
 let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=randomSeed();
 let machineIndex=0;
@@ -25,7 +25,7 @@ function element(tag,text,className){const e=document.createElement(tag);e.textC
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
 function renderMachineSelector(){
   const machine=MACHINES[machineIndex],unlocked=isMachineUnlocked(machine.id,save.bestScore);
-  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-selector').classList.toggle('scooter',machine.id==='scooter');$('#machine-selector').classList.toggle('supersport',machine.id==='supersport');$('#machine-selector').classList.toggle('horse',machine.id==='horse');$('#machine-selector').classList.toggle('robovac',machine.id==='robovac');$('#machine-name').textContent=t(machine.nameKey);
+  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-name').textContent=t(machine.nameKey);machinePreview?.setMachine(machine.id,!unlocked);
   $('#machine-status').textContent=unlocked?t('machine.selected'):`${t('machine.unlockAt')} ${number(machine.unlockScore)}`;
   $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;$('#play').disabled=!unlocked;$('#play').textContent=t(unlocked?'ui.play':'machine.locked');
 }
@@ -81,11 +81,11 @@ function resume(){
 }
 function platformPause(){
   if(platformPaused)return;
-  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio.pause();saveNow();accumulator=0;previousTime=0;stopFrame();
+  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio.pause();machinePreview?.setActive(false);saveNow();accumulator=0;previousTime=0;stopFrame();
 }
 function platformResume(){
   if(!platformPaused)return;
-  platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;
+  platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;machinePreview?.setActive(state==='title');
   const waiters=resumeWaiters;resumeWaiters=[];for(const resolve of waiters)resolve();
   if(userPaused){setActive();return;}
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
@@ -106,7 +106,7 @@ function finishReward(earned){
 }
 function goTitle(){
   rewardId++;platform.resolveRevive(false);pendingRewardResult=null;userPaused=false;pauseConfirming=false;state='title';input.setEnabled(false);audio.pause();saveNow();
-  stage.hidden=true;$('.title-screen').hidden=false;$('.game-shell').classList.remove('in-game');overlay.hidden=true;$('#play').focus();
+  stage.hidden=true;$('.title-screen').hidden=false;$('.game-shell').classList.remove('in-game');overlay.hidden=true;machinePreview?.setActive(true);renderMachineSelector();$('#play').focus();
 }
 async function startRun(first=true){
   if(platformPaused||state==='loading')return;
@@ -117,7 +117,7 @@ async function startRun(first=true){
     if(!world){const {World}=await import('./game/World.js');await waitForPlatformResume();world=new World(canvas);}
     rewardId++;platform.resolveRevive(false);pendingRewardResult=null;userPaused=false;pauseConfirming=false;recordAtStart=save.bestScore;
     seed=randomSeed();sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
-    $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.setMachine(save.selectedMachine);world.resize();world.render(sim,save.settings);updateHUD();
+    $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');machinePreview?.setActive(false);world.setMachine(save.selectedMachine);world.resize();world.render(sim,save.settings);updateHUD();
     if(first&&!save.tutorialCompleted){state='tutorial';setActive();showTutorial();}else countdown();
   }catch(error){console.error(error);state='title';openError('error.title','error.detail');}
   finally{$('#play').disabled=false;$('#play').textContent=t('ui.play');}
@@ -206,5 +206,6 @@ async function init(){
   platform.onPause(platformPause,platformResume);
   await new Promise(resolve=>requestAnimationFrame(()=>{platform.firstFrameReady();resolve();}));
   platform.gameReady();scheduleFrame();
+  import('./game/MachinePreview.js').then(({MachinePreview})=>{machinePreview=new MachinePreview($('#machine-preview-canvas'));renderMachineSelector();machinePreview.setActive(state==='title'&&!platformPaused);}).catch(console.error);
 }
 init().catch(error=>{console.error(error);$('#load-error').hidden=false;});

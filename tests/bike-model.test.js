@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import * as THREE from '../src/vendor/three.module.js';
 import { createBike, createScooter, createSuperSport, createHorse, createRobotVacuum } from '../src/game/BikeModel.js';
 import { World } from '../src/game/World.js';
+import { MachinePreview } from '../src/game/MachinePreview.js';
+
+test('hidden machine preview keeps its last valid viewport until title is visible',()=>{
+  const calls=[],camera={aspect:2,updateProjectionMatrix(){calls.push('camera');}},renderer={setSize(...args){calls.push(args);}};
+  const preview={canvas:{clientWidth:0,clientHeight:0},renderer,camera};
+  assert.equal(MachinePreview.prototype.resize.call(preview),false);assert.deepEqual(calls,[]);assert.equal(camera.aspect,2);
+  preview.canvas={clientWidth:194,clientHeight:102};assert.equal(MachinePreview.prototype.resize.call(preview),true);
+  assert.deepEqual(calls,[[194,102,false],'camera']);assert.equal(camera.aspect,194/102);
+});
 
 test('bike batching retains independent wheels, damage parts and lean root',()=>{
   const bike=createBike(()=>{}),d=bike.userData;
