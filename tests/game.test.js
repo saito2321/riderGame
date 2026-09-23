@@ -162,9 +162,9 @@ test('local save persists current settings and reloads best records',()=>{
   const reload=new LocalAdapter(storage).load();assert.equal(reload.bestScore,123);assert.equal(reload.bestDistance,50);assert.deepEqual(reload.settings,{sfx:false});assert.equal(reload.tutorialCompleted,true);assert.equal(reload.selectedMachine,'street');
 });
 test('machines unlock from best score and only unlocked selections persist',()=>{
-  assert.deepEqual(MACHINES.map(machine=>machine.unlockScore),[0,5000,12000,25000,40000]);assert.equal(isMachineUnlocked('scooter',4999),false);assert.equal(isMachineUnlocked('scooter',5000),true);
-  const storage=memory(),p=new LocalAdapter(storage);p.load();assert.equal(p.setMachine('scooter'),false);p.record({score:12000,distance:0,bestCombo:0});assert.equal(p.setMachine('racer'),true);assert.equal(p.setMachine('phantom'),false);
-  const reload=new LocalAdapter(storage).load();assert.equal(reload.selectedMachine,'racer');assert.equal(reload.bestScore,12000);
+  assert.deepEqual(MACHINES.map(machine=>machine.unlockScore),[0,5000,10000,20000,30000]);assert.equal(isMachineUnlocked('scooter',4999),false);assert.equal(isMachineUnlocked('scooter',5000),true);
+  const storage=memory(),p=new LocalAdapter(storage);p.load();assert.equal(p.setMachine('scooter'),false);p.record({score:10000,distance:0,bestCombo:0});assert.equal(p.setMachine('supersport'),true);assert.equal(p.setMachine('phantom'),false);
+  const reload=new LocalAdapter(storage).load();assert.equal(reload.selectedMachine,'supersport');assert.equal(reload.bestScore,10000);
 });
 test('broken or unavailable save storage never prevents session play or overwrites data',()=>{
   const storage=memory();storage.setItem('lsr.save.v2','broken');const p=new LocalAdapter(storage);p.load();assert.equal(p.writable,false);p.record({score:500,distance:30,bestCombo:2});p.save(true);assert.equal(p.data.bestScore,500);assert.equal(storage.getItem('lsr.save.v2'),'broken');

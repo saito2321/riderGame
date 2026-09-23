@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../src/vendor/three.module.js';
-import { createBike, createScooter } from '../src/game/BikeModel.js';
+import { createBike, createScooter, createSuperSport } from '../src/game/BikeModel.js';
 import { World } from '../src/game/World.js';
 
 test('bike batching retains independent wheels, damage parts and lean root',()=>{
@@ -33,7 +33,16 @@ test('scooter has a distinct commuter model with the shared damage contract',()=
 });
 
 test('world selects the scooter model for the 5000 point machine',()=>{
-  const street={visible:true},scooter={visible:false},world={playerMachines:{street,scooter},bike:street,crashElapsed:1,lastTime:1};
+  const street={visible:true},scooter={visible:false},supersport={visible:false},world={playerMachines:{street,scooter,supersport},bike:street,crashElapsed:1,lastTime:1};
   World.prototype.setMachine.call(world,'scooter');assert.equal(world.bike,scooter);assert.equal(street.visible,false);assert.equal(world.crashElapsed,0);
-  World.prototype.setMachine.call(world,'racer');assert.equal(world.bike,street);assert.equal(scooter.visible,false);
+  World.prototype.setMachine.call(world,'supersport');assert.equal(world.bike,supersport);assert.equal(scooter.visible,false);
+  World.prototype.setMachine.call(world,'cyber');assert.equal(world.bike,street);assert.equal(supersport.visible,false);
+});
+
+test('supersport has a full-cowl model within the player bike budget',()=>{
+  const bike=createSuperSport(()=>{}),d=bike.userData;assert.equal(d.machineType,'supersport');assert.equal(d.visual.parent,bike);assert.equal(d.wheels.length,2);assert.ok(d.screen);
+  for(const part of [d.paint,d.tail,d.frontLight,d.exhaust,d.flame,d.scratches,...d.wheels])assert.equal(part.parent,d.visual);
+  bike.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(bike);assert.ok(bounds.max.y<2.3&&bounds.min.y>-.4);assert.ok(bounds.max.z-bounds.min.z>2);
+  let triangles=0,meshes=0;bike.traverse(part=>{if(!part.isMesh)return;meshes++;triangles+=(part.geometry.index?.count??part.geometry.getAttribute('position').count)/3;});
+  assert.ok(triangles<15000,`supersport triangle budget: ${triangles}`);assert.ok(meshes<=30,`supersport draw budget: ${meshes}`);
 });

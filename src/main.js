@@ -25,9 +25,9 @@ function element(tag,text,className){const e=document.createElement(tag);e.textC
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
 function renderMachineSelector(){
   const machine=MACHINES[machineIndex],unlocked=isMachineUnlocked(machine.id,save.bestScore);
-  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-selector').classList.toggle('scooter',machine.id==='scooter');$('#machine-name').textContent=t(machine.nameKey);
+  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-selector').classList.toggle('scooter',machine.id==='scooter');$('#machine-selector').classList.toggle('supersport',machine.id==='supersport');$('#machine-name').textContent=t(machine.nameKey);
   $('#machine-status').textContent=unlocked?t('machine.selected'):`${t('machine.unlockAt')} ${number(machine.unlockScore)}`;
-  $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;
+  $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;$('#play').disabled=!unlocked;$('#play').textContent=t(unlocked?'ui.play':'machine.locked');
 }
 function browseMachine(direction){
   machineIndex=(machineIndex+direction+MACHINES.length)%MACHINES.length;

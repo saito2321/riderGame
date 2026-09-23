@@ -7,6 +7,7 @@ const rubber=new THREE.MeshStandardMaterial({color:'#101317',metalness:0,roughne
 const leather=new THREE.MeshStandardMaterial({color:'#202a35',metalness:0,roughness:.83});
 const paint=new THREE.MeshStandardMaterial({color:'#95b630',metalness:.5,roughness:.25});
 const scooterPaint=new THREE.MeshStandardMaterial({color:'#35c8ba',metalness:.42,roughness:.28});
+const superSportPaint=new THREE.MeshStandardMaterial({color:'#e34c36',metalness:.55,roughness:.22});
 const helmetPaint=new THREE.MeshStandardMaterial({color:'#cfd4d8',metalness:.18,roughness:.3});
 const visor=new THREE.MeshStandardMaterial({color:'#162837',metalness:.65,roughness:.12});
 const red=new THREE.MeshBasicMaterial({color:'#ff2539'});
@@ -160,6 +161,43 @@ export function createScooter(shadow){
   const scratches=mesh(g,cube,metal,.273,.83,.24,.008,.018,.17);scratches.visible=false;
   batchParts(g,new Set([body,tail,frontLight,exhaust,flame,scratches]));
   root.userData={machineType:'scooter',wheels,paint:body,healthyPaint:scooterPaint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
+}
+
+export function createSuperSport(shadow){
+  const root=new THREE.Group(),g=new THREE.Group();root.add(g);const groundShadow=shadow(root,.9,2.4);
+  const wheels=[bikeWheel(g,-.8,.19),bikeWheel(g,.8,.22)];
+  // A continuous nose-to-engine fairing and enclosed belly pan create the full-cowl silhouette.
+  const fairing=shell(g,superSportPaint,[[-1.02,.8,.001,.001],[-.91,.91,.24,.2],[-.7,.89,.34,.32],[-.42,.72,.38,.34],[-.02,.62,.36,.27],[.3,.67,.3,.2],[.47,.78,.17,.1],[.52,.81,.001,.001]]);
+  const tank=shell(g,superSportPaint,[[-.52,1.05,.001,.001],[-.36,1.12,.24,.16],[-.08,1.13,.3,.19],[.2,1.05,.23,.14],[.32,.98,.001,.001]]);
+  const tail=shell(g,superSportPaint,[[.18,.98,.001,.001],[.43,1.03,.24,.1],[.73,1.13,.19,.075],[1.02,1.2,.07,.035],[1.08,1.2,.001,.001]]);
+  mesh(g,sphere,leather,0,1.08,.35,.2,.045,.27);mesh(g,sphere,leather,0,1.17,.72,.14,.03,.16);
+  mesh(g,cube,black,0,.5,-.06,.35,.08,.82);mesh(g,cube,red,0,1.18,1.07,.13,.026,.024);
+  for(const side of [-1,1]){
+    link(g,gold,[side*.15,1.02,-.65],[side*.14,.35,-.8],.033);link(g,metal,[side*.14,.65,-.73],[side*.14,.35,-.8],.026);
+    link(g,black,[side*.18,.6,.22],[side*.14,.35,.8],.035);
+    link(g,metal,[side*.14,1.2,-.58],[side*.32,1.18,-.65],.02);link(g,rubber,[side*.31,1.18,-.65],[side*.42,1.17,-.68],.029);
+    link(g,black,[side*.22,1.24,-.7],[side*.38,1.37,-.76],.014);mesh(g,sphere,visor,side*.39,1.38,-.76,.075,.04,.025);
+    mesh(g,cube,white,side*.13,.91,-.966,.09,.035,.018);
+  }
+  const frontLight=mesh(g,cube,white,0,.93,-1.002,.23,.035,.02);frontLight.rotation.x=-.22;
+  const screen=shell(g,visor,[[-.88,1.05,.001,.001],[-.76,1.25,.2,.11],[-.57,1.43,.15,.04],[-.51,1.43,.001,.001]]);
+  link(g,metal,[.18,.48,.15],[.3,.46,.88],.062,.045);const exhaust=link(g,metal,[.3,.46,.5],[.33,.55,1.02],.067,.047);link(g,black,[.33,.55,1.015],[.334,.557,1.06],.04);
+  mesh(g,cube,metal,0,.72,1.04,.15,.09,.014).rotation.x=-.25;
+  // Tucked elbows, raised knees and a low helmet give the supersport its racing posture.
+  mesh(g,sphere,leather,0,1.14,.32,.2,.13,.18);
+  const torso=mesh(g,sphere,leather,0,1.43,.02,.25,.31,.18);torso.rotation.x=-.72;
+  const back=mesh(g,sphere,black,0,1.46,.17,.17,.22,.06);back.rotation.x=-.72;
+  for(const side of [-1,1]){
+    const shoulder=[side*.22,1.56,-.18],elbow=[side*.34,1.31,-.34],hand=[side*.36,1.18,-.62];link(g,leather,shoulder,elbow,.08,.063);link(g,leather,elbow,hand,.061,.044);mesh(g,sphere,black,...hand,.052,.05,.07);
+    const hip=[side*.16,1.13,.37],knee=[side*.3,.87,-.08],ankle=[side*.27,.53,.28];link(g,leather,hip,knee,.105,.082);link(g,leather,knee,ankle,.077,.054);mesh(g,sphere,black,side*.27,.5,.18,.067,.07,.16);
+  }
+  mesh(g,sphere,black,0,1.64,-.36,.082,.09,.08);
+  const helmet=mesh(g,sphere,helmetPaint,0,1.72,-.49,.215,.235,.245);helmet.rotation.x=-.26;
+  const face=mesh(g,sphere,visor,0,1.73,-.62,.195,.105,.14);face.rotation.x=-.26;
+  const flame=mesh(g,new THREE.ConeGeometry(.09,.7,7),new THREE.MeshBasicMaterial({color:'#9bf5ff'}),.334,.557,1.34);flame.rotation.x=Math.PI/2;flame.visible=false;
+  const scratches=mesh(g,cube,metal,.355,.79,-.24,.008,.021,.2);scratches.visible=false;
+  batchParts(g,new Set([fairing,tail,frontLight,exhaust,flame,scratches]));
+  root.userData={machineType:'supersport',wheels,paint:fairing,healthyPaint:superSportPaint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow,screen};return root;
 }
 
 

@@ -3,7 +3,7 @@ import { CONFIG as C, VEHICLES } from './config.js';
 
 import { environment, roadMaterial, createCity, coachworkGeometry, batchParts } from './VisualAssets.js';
 
-import { createBike, createScooter, createTrafficBike } from './BikeModel.js';
+import { createBike, createScooter, createSuperSport, createTrafficBike } from './BikeModel.js';
 
 const bodyGeometry=coachworkGeometry();
 const tireGeometry=new THREE.TorusGeometry(1,.24,6,20);
@@ -148,7 +148,7 @@ export class World {
     for(const coins of [this.coinDiscs,this.coinMarks]){coins.count=0;coins.frustumCulled=false;coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.scene.add(coins);}
     this.matrix=new THREE.Object3D();
     this.city=createCity(this.scene,boxGeometry);
-    this.playerMachines={street:createBike(shadow),scooter:createScooter(shadow)};
+    this.playerMachines={street:createBike(shadow),scooter:createScooter(shadow),supersport:createSuperSport(shadow)};
     for(const machine of Object.values(this.playerMachines)){machine.visible=false;this.scene.add(machine);}this.bike=this.playerMachines.street;
     // Clone only once at startup; traffic motorcycles share all geometry/materials.
     const trafficBike=createTrafficBike(shadow);
@@ -164,7 +164,7 @@ export class World {
     canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();canvas.dispatchEvent(new CustomEvent('renderer-lost'));});
   }
   setMachine(id) {
-    const next=id==='scooter'?this.playerMachines.scooter:this.playerMachines.street;
+    const next=this.playerMachines[id]??this.playerMachines.street;
     if(next===this.bike)return;
     this.bike.visible=false;this.bike=next;this.crashElapsed=0;this.lastTime=0;
   }
