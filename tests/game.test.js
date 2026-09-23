@@ -191,7 +191,7 @@ test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
     ads:{requestRewardedAd:async id=>{calls.push(['reward',id]);return true;},requestInterstitialAd:async()=>calls.push('interstitial')},
     system:{isAudioEnabled:()=>false,onAudioEnabledChange:()=>()=>{},onPause:()=>()=>{},onResume:()=>()=>{}}};
   const p=new PlatformAdapter({sdk});p.firstFrameReady();const data=await p.load();assert.equal(data.bestScore,80);assert.equal(p.isAudioEnabled(),false);
-  p.record({score:125,distance:60,bestCombo:5});await p.save(true);assert.deepEqual(calls.slice(0,4),['first','load',['score',125],['save',125]]);
+  p.record({score:125,distance:60,bestCombo:5});await p.save(true);assert.deepEqual(calls.slice(0,4),['first','load',['save',125],['score',125]]);
   assert.equal(await p.requestInterstitial(),true);assert.equal(await p.requestRevive(),true);assert.ok(calls.some(call=>Array.isArray(call)&&call[0]==='reward'&&call[1]==='revive-one-health'));
   p.gameReady();assert.equal(calls.at(-1),'ready');
 });
@@ -204,4 +204,13 @@ test('failed YouTube load cannot overwrite an unknown cloud save',async()=>{
   let saves=0;const sdk={IN_PLAYABLES_ENV:true,game:{loadData:async()=>{throw Error('offline');},saveData:async()=>{saves++;}},engagement:{},ads:{},system:{}};
   const p=new PlatformAdapter({sdk});await p.load();p.record({score:500,distance:20,bestCombo:2});await p.save(true);
   assert.equal(p.writable,false);assert.equal(p.saveFailed,true);assert.equal(saves,0);
+});
+test('playables sends only the best score from a successful cloud save',async()=>{
+  const calls=[];let rejectSave;
+  const sdk={IN_PLAYABLES_ENV:true,
+    game:{loadData:async()=>'',saveData:data=>{calls.push(['save',JSON.parse(data).bestScore]);return new Promise((_,reject)=>{rejectSave=reject;});}},
+    engagement:{sendScore:score=>calls.push(['score',score.value])},ads:{},system:{}};
+  const p=new PlatformAdapter({sdk});await p.load();p.record({score:250,distance:30,bestCombo:4});
+  const pending=p.save(true);await Promise.resolve();assert.deepEqual(calls,[['save',250]]);
+  rejectSave(Error('offline'));await pending;assert.deepEqual(calls,[['save',250]]);assert.equal(p.dirty,true);
 });

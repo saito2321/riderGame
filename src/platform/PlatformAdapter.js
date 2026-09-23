@@ -39,8 +39,7 @@ export class PlatformAdapter {
       if (next !== this.data[key]) { this.data[key] = next; this.dirty = true; }
     }
   }
-  sendBestScore() {
-    const score = this.data.bestScore;
+  sendBestScore(score = this.data.bestScore) {
     if (!score || score <= this.lastScoreAttempt || typeof this.sdk.engagement?.sendScore !== 'function') return;
     this.lastScoreAttempt = score;
     try { Promise.resolve(this.sdk.engagement.sendScore({ value: score })).catch(() => { if (this.lastScoreAttempt === score) this.lastScoreAttempt = 0; }); }
@@ -50,15 +49,16 @@ export class PlatformAdapter {
     if (this.local) return this.local.save(force);
     const now = Date.now();
     if (!this.loaded || !this.cloudWritable) return this.pendingSave ?? Promise.resolve();
-    if (force) this.sendBestScore();
     if (!this.dirty || (!force && now - this.lastSave < 1000)) return this.pendingSave ?? Promise.resolve();
     if (this.pendingSave) return this.pendingSave;
     const serialized = JSON.stringify(this.data);
+    const savedBestScore = this.data.bestScore;
     this.dirty = false;
     this.lastSave = now;
     let failed = false;
     const request = Promise.resolve().then(() => this.sdk.game.saveData(serialized)).then(() => {
       this.cloudSaveFailed = false;
+      this.sendBestScore(savedBestScore);
     }).catch(() => {
       failed = true;
       this.cloudSaveFailed = true;
