@@ -6,6 +6,7 @@ const black=new THREE.MeshStandardMaterial({color:'#151b23',metalness:.25,roughn
 const rubber=new THREE.MeshStandardMaterial({color:'#101317',metalness:0,roughness:.96});
 const leather=new THREE.MeshStandardMaterial({color:'#202a35',metalness:0,roughness:.83});
 const paint=new THREE.MeshStandardMaterial({color:'#95b630',metalness:.5,roughness:.25});
+const scooterPaint=new THREE.MeshStandardMaterial({color:'#35c8ba',metalness:.42,roughness:.28});
 const helmetPaint=new THREE.MeshStandardMaterial({color:'#cfd4d8',metalness:.18,roughness:.3});
 const visor=new THREE.MeshStandardMaterial({color:'#162837',metalness:.65,roughness:.12});
 const red=new THREE.MeshBasicMaterial({color:'#ff2539'});
@@ -111,7 +112,54 @@ export function createBike(shadow){
   const flame=mesh(g,new THREE.ConeGeometry(.09,.65,7),new THREE.MeshBasicMaterial({color:'#9bf5ff'}),.32,.56,1.23);flame.rotation.x=Math.PI/2;flame.visible=false;
   const scratches=mesh(g,cube,metal,.253,1.03,-.22,.008,.019,.16);scratches.visible=false;
   batchParts(g,new Set([tank,tail,frontLight,exhaust,flame,scratches]));
-  root.userData={wheels,paint:tank,healthyPaint:paint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
+  root.userData={machineType:'street',wheels,paint:tank,healthyPaint:paint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
+}
+
+export function createScooter(shadow){
+  const root=new THREE.Group(),g=new THREE.Group();root.add(g);const groundShadow=shadow(root,.86,2.15);
+  const wheels=[bikeWheel(g,-.68,.18),bikeWheel(g,.68,.18)];
+  // Rounded rear body, low step-through floor and a tall front apron define the scooter silhouette.
+  const body=shell(g,scooterPaint,[[.02,.66,.001,.001],[.18,.75,.29,.22],[.48,.83,.32,.27],[.82,.79,.26,.22],[.94,.7,.001,.001]]);
+  const tail=shell(g,scooterPaint,[[.28,.9,.001,.001],[.48,.98,.3,.13],[.76,1.01,.28,.12],[.96,.94,.13,.08],[1.01,.9,.001,.001]]);
+  mesh(g,cube,black,0,.53,-.02,.31,.055,.72);
+  mesh(g,cube,metal,0,.575,-.11,.26,.018,.55);
+  const apron=shell(g,scooterPaint,[[-.83,.57,.001,.001],[-.73,.72,.27,.18],[-.62,1.02,.3,.28],[-.55,1.3,.24,.16],[-.49,1.36,.001,.001]]);
+  mesh(g,sphere,leather,0,1.045,.48,.27,.07,.41);
+  mesh(g,cube,red,0,.92,.955,.17,.04,.025);
+  for(const side of [-1,1]){
+    link(g,metal,[side*.13,.82,-.54],[side*.13,.34,-.68],.03);
+    link(g,black,[side*.17,.62,.3],[side*.13,.34,.68],.034);
+    link(g,metal,[side*.13,1.34,-.57],[side*.34,1.42,-.61],.022);
+    link(g,rubber,[side*.33,1.42,-.61],[side*.45,1.42,-.61],.032);
+    link(g,black,[side*.26,1.42,-.6],[side*.39,1.62,-.62],.014);
+    mesh(g,sphere,visor,side*.4,1.63,-.62,.07,.047,.026);
+    mesh(g,sphere,black,side*.25,.78,-.47,.035,.11,.12);
+  }
+  const frontLight=mesh(g,sphere,white,0,1.19,-.724,.18,.12,.04);
+  shell(g,visor,[[-.67,1.31,.001,.001],[-.6,1.49,.2,.12],[-.51,1.58,.15,.04],[-.47,1.58,.001,.001]]);
+  link(g,metal,[.2,.47,.39],[.28,.49,.87],.06,.045);
+  const exhaust=link(g,metal,[.28,.49,.57],[.3,.53,.94],.062,.045);
+  link(g,black,[.3,.53,.935],[.302,.534,.976],.037);
+  const plate=mesh(g,cube,metal,0,.66,.98,.15,.09,.014);plate.rotation.x=-.22;
+  // An upright rider with feet on the floorboard reinforces the commuter posture.
+  mesh(g,sphere,leather,0,1.15,.43,.22,.14,.2);
+  const torso=mesh(g,sphere,leather,0,1.47,.27,.255,.34,.18);torso.rotation.x=-.16;
+  const back=mesh(g,sphere,black,0,1.48,.42,.17,.24,.06);back.rotation.x=-.16;
+  for(const side of [-1,1]){
+    const shoulder=[side*.23,1.63,.18],elbow=[side*.34,1.48,-.14],hand=[side*.4,1.42,-.55];
+    link(g,leather,shoulder,elbow,.082,.065);link(g,leather,elbow,hand,.063,.045);mesh(g,sphere,black,...hand,.055,.052,.07);
+    const hip=[side*.16,1.14,.46],knee=[side*.25,.91,.08],ankle=[side*.24,.66,-.22];
+    link(g,leather,hip,knee,.105,.083);link(g,leather,knee,ankle,.078,.055);
+    mesh(g,sphere,black,side*.24,.62,-.3,.07,.065,.16);
+  }
+  mesh(g,sphere,black,0,1.77,.19,.085,.1,.085);
+  const helmet=mesh(g,sphere,helmetPaint,0,1.91,.12,.22,.245,.25);helmet.rotation.x=-.04;
+  const face=mesh(g,sphere,visor,0,1.93,-.025,.2,.115,.14);face.rotation.x=-.04;
+  mesh(g,sphere,black,0,1.77,-.01,.16,.056,.13);
+  const flame=mesh(g,new THREE.ConeGeometry(.085,.58,7),new THREE.MeshBasicMaterial({color:'#9bf5ff'}),.3,.53,1.22);flame.rotation.x=Math.PI/2;flame.visible=false;
+  const scratches=mesh(g,cube,metal,.273,.83,.24,.008,.018,.17);scratches.visible=false;
+  batchParts(g,new Set([body,tail,frontLight,exhaust,flame,scratches]));
+  root.userData={machineType:'scooter',wheels,paint:body,healthyPaint:scooterPaint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
 }
 
 

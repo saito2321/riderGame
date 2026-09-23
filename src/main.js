@@ -25,7 +25,7 @@ function element(tag,text,className){const e=document.createElement(tag);e.textC
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
 function renderMachineSelector(){
   const machine=MACHINES[machineIndex],unlocked=isMachineUnlocked(machine.id,save.bestScore);
-  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-name').textContent=t(machine.nameKey);
+  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-selector').classList.toggle('scooter',machine.id==='scooter');$('#machine-name').textContent=t(machine.nameKey);
   $('#machine-status').textContent=unlocked?t('machine.selected'):`${t('machine.unlockAt')} ${number(machine.unlockScore)}`;
   $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;
 }
@@ -117,7 +117,7 @@ async function startRun(first=true){
     if(!world){const {World}=await import('./game/World.js');await waitForPlatformResume();world=new World(canvas);}
     rewardId++;platform.resolveRevive(false);pendingRewardResult=null;userPaused=false;pauseConfirming=false;recordAtStart=save.bestScore;
     seed=randomSeed();sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
-    $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.resize();world.render(sim,save.settings);updateHUD();
+    $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.setMachine(save.selectedMachine);world.resize();world.render(sim,save.settings);updateHUD();
     if(first&&!save.tutorialCompleted){state='tutorial';setActive();showTutorial();}else countdown();
   }catch(error){console.error(error);state='title';openError('error.title','error.detail');}
   finally{$('#play').disabled=false;$('#play').textContent=t('ui.play');}
