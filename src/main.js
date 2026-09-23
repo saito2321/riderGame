@@ -80,7 +80,7 @@ function platformResume(){
   if(['playing','countdown'].includes(state))audio.unlock();
   setActive();renderPanel();scheduleFrame();if(state==='playing')canvas.focus();
 }
-function countdown(){state='countdown';remaining=3.45;accumulator=0;previousTime=0;setActive();renderPanel();}
+function countdown(){state='countdown';remaining=3.45;accumulator=0;previousTime=0;setActive();renderPanel();scheduleFrame();}
 async function requestRevive(){
   if(state!=='result'||sim.revived)return;
   state='reward';setActive();audio.pause();const token=++rewardId;renderPanel();
