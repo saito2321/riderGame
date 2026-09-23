@@ -10,6 +10,7 @@ const scooterPaint=new THREE.MeshStandardMaterial({color:'#35c8ba',metalness:.42
 const superSportPaint=new THREE.MeshStandardMaterial({color:'#e34c36',metalness:.55,roughness:.22});
 const horseCoat=new THREE.MeshStandardMaterial({color:'#9a5b32',metalness:0,roughness:.86});
 const horseDark=new THREE.MeshStandardMaterial({color:'#321f19',metalness:0,roughness:.94});
+const robotPaint=new THREE.MeshStandardMaterial({color:'#e7e9e4',metalness:.38,roughness:.3});
 const helmetPaint=new THREE.MeshStandardMaterial({color:'#cfd4d8',metalness:.18,roughness:.3});
 const visor=new THREE.MeshStandardMaterial({color:'#162837',metalness:.65,roughness:.12});
 const red=new THREE.MeshBasicMaterial({color:'#ff2539'});
@@ -237,6 +238,48 @@ export function createHorse(shadow){
   const scratches=mesh(g,cube,metal,.36,1.05,.08,.008,.02,.2);scratches.visible=false;
   batchParts(g,new Set([body,tail,frontLight,exhaust,flame,scratches]));
   root.userData={machineType:'horse',wheels:[],legs,paint:body,healthyPaint:horseCoat,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
+}
+
+export function createRobotVacuum(shadow){
+  const root=new THREE.Group(),g=new THREE.Group();root.add(g);const groundShadow=shadow(root,.78,1.75);
+  // A low circular body, bumper ring and raised LiDAR puck make the cleaner readable at game distance.
+  const body=mesh(g,cylinder,robotPaint,0,.3,0,.58,.18,.72);
+  const bumper=mesh(g,cylinder,black,0,.27,-.02,.61,.12,.75);
+  const top=mesh(g,cylinder,robotPaint,0,.43,0,.52,.08,.65);
+  const lidar=mesh(g,cylinder,black,0,.55,-.08,.17,.09,.17);
+  mesh(g,cylinder,visor,0,.65,-.08,.12,.025,.12);
+  const frontLight=mesh(g,cube,white,0,.34,-.752,.25,.055,.018);
+  const tail=mesh(g,cube,red,0,.34,.735,.23,.045,.018);
+  // Three-armed side brushes rotate while the robot moves.
+  const brushes=[];
+  for(const side of [-1,1]){
+    const brush=new THREE.Group();brush.position.set(side*.47,.14,-.48);g.add(brush);
+    mesh(brush,cylinder,black,0,0,0,.07,.035,.07);
+    for(let arm=0;arm<3;arm++){
+      const angle=arm*Math.PI*2/3;
+      link(brush,horseDark,[0,0,0],[Math.cos(angle)*.3,0,Math.sin(angle)*.3],.018,.01);
+    }
+    brush.userData.phase=side>0?Math.PI:0;brushes.push(brush);
+  }
+  // The rider balances on top like a tiny hoverboard, keeping the regular player silhouette recognizable.
+  for(const side of [-1,1]){
+    mesh(g,sphere,black,side*.18,.65,.17,.1,.055,.22);
+    link(g,leather,[side*.14,.72,.12],[side*.25,1.03,-.03],.09,.07);
+    link(g,leather,[side*.25,1.03,-.03],[side*.15,1.31,.02],.075,.058);
+    link(g,leather,[side*.2,1.58,-.02],[side*.34,1.32,-.25],.078,.06);
+    link(g,leather,[side*.34,1.32,-.25],[side*.43,1.18,-.08],.058,.042);
+    mesh(g,sphere,black,side*.43,1.18,-.08,.052,.05,.065);
+  }
+  mesh(g,sphere,leather,0,1.24,.04,.21,.14,.18);
+  const torso=mesh(g,sphere,leather,0,1.52,-.02,.25,.32,.17);torso.rotation.x=-.08;
+  mesh(g,sphere,black,0,1.83,-.04,.085,.1,.085);
+  const helmet=mesh(g,sphere,helmetPaint,0,1.97,-.08,.215,.235,.24);
+  const face=mesh(g,sphere,visor,0,1.98,-.215,.195,.105,.135);
+  const exhaust=mesh(g,sphere,black,0,.3,.72,.07,.07,.07);
+  const flame=mesh(g,new THREE.ConeGeometry(.09,.62,7),new THREE.MeshBasicMaterial({color:'#9bf5ff'}),0,.3,1.06);flame.rotation.x=Math.PI/2;flame.visible=false;
+  const scratches=mesh(g,cube,metal,.43,.45,-.2,.01,.02,.25);scratches.visible=false;
+  batchParts(g,new Set([body,tail,frontLight,exhaust,flame,scratches,...brushes]));
+  root.userData={machineType:'robovac',wheels:[],brushes,paint:body,healthyPaint:robotPaint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow,lidar};return root;
 }
 
 

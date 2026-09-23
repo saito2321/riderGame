@@ -3,7 +3,7 @@ export const MACHINES = Object.freeze([
   { id: 'scooter', nameKey: 'machine.scooter', unlockScore: 5000 },
   { id: 'supersport', nameKey: 'machine.supersport', unlockScore: 10000 },
   { id: 'horse', nameKey: 'machine.horse', unlockScore: 20000 },
-  { id: 'phantom', nameKey: 'machine.phantom', unlockScore: 30000 }
+  { id: 'robovac', nameKey: 'machine.robovac', unlockScore: 30000 }
 ]);
 
 export const DEFAULT_MACHINE_ID = MACHINES[0].id;
