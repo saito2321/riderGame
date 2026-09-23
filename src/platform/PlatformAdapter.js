@@ -1,4 +1,5 @@
 import { LocalAdapter, createDefaultSave, mergeSave } from './LocalAdapter.js';
+import { isMachineUnlocked } from '../machines.js';
 
 const REVIVE_REWARD_ID = 'revive-one-health';
 
@@ -74,6 +75,11 @@ export class PlatformAdapter {
     if (this.local) return this.local.setSetting(key, value);
     if (!(key in this.data.settings)) return;
     this.data.settings[key] = value; this.dirty = true; this.save(true);
+  }
+  setMachine(id) {
+    if (this.local) return this.local.setMachine(id);
+    if (!isMachineUnlocked(id,this.data.bestScore) || id === this.data.selectedMachine) return false;
+    this.data.selectedMachine = id; this.dirty = true; this.save(true); return true;
   }
   completeTutorial() {
     if (this.local) return this.local.completeTutorial();

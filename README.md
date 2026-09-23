@@ -1,6 +1,6 @@
 # Lane Split Rush
 
-スマホ縦画面向けのThree.js製すり抜けゲームです。トップページはタイトル、HighScore、Playと、右上の♪チェックボックスで構成します。
+スマホ縦画面向けのThree.js製すり抜けゲームです。トップページはタイトル上部のHighScore、中央のマシン選択、Play、右上の♪チェックボックスで構成します。
 
 ## 起動
 
@@ -22,6 +22,7 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 - 体力は3。衝突で1減り、短時間無敵になります。0で結果画面へ進み、RETRYですぐ再挑戦できます。
 - PAUSE / Escで一時停止。タブ移動やウィンドウのフォーカス喪失でも停止し、RESUMEで再開します。
 - タイトル右上の♪チェックボックスで、効果音とエンジン音をまとめてON / OFFできます。BGMはありません。振動は対応端末で常にON、動き抑制は行いません。
+- HighScoreが0 / 5,000 / 12,000 / 25,000 / 40,000点へ達するとマシンが順番に開放されます。タイトルの左右矢印で選択し、未開放マシンは黒いシルエットで表示します。現段階では走行中の見た目・性能は共通です。
 
 ## 実装
 
@@ -40,7 +41,7 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 
 | 機能 | YouTubeゲームルーム | ゲームルーム外（GitHub Pages / localhost） |
 |---|---|---|
-| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v1` |
+| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v2` |
 | ベストスコア | `ytgame.engagement.sendScore` | LocalStorageへ保存 |
 | Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止と明示的なRESUME |
 | 復活 | `requestRewardedAd('revive-one-health')` | REVIVE (LOCAL) → GRANT REVIVE / CANCEL |
@@ -49,7 +50,7 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 
 ゲームルームではリワード広告の結果が `true` の場合だけ、ゲームルーム外ではGRANT REVIVEを選んだ場合だけ体力1で復活します。復活は1ラン1回で、成功後に安全地帯とカウントダウンを挟みます。広告の失敗やキャンセル時は結果画面へ戻ります。
 
-Best Score、Best Distance、Best Combo、チュートリアル完了と効果音設定を `lsr.save.v1` に保存します。公開前のため旧形式からの移行処理は持ちません。不正データは上書きせずセッション内でプレイできます。保存制限や失敗時は結果画面に表示します。
+Best Score、Best Distance、Best Combo、チュートリアル完了、選択マシンと効果音設定を `lsr.save.v2` に保存します。公開前のため旧形式からの移行処理は持ちません。不正データは上書きせずセッション内でプレイできます。保存制限や失敗時は結果画面に表示します。
 
 交通のSeedはラン開始ごとにランダムに生成します。テストではSimulationへSeedを直接注入して、同じSeedと同じ入力による再現性を検証します。
 

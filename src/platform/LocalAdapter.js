@@ -1,13 +1,18 @@
-const KEY = 'lsr.save.v1';
-export const createDefaultSave = () => ({ schemaVersion: 1, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false,
+import { DEFAULT_MACHINE_ID, isMachineUnlocked, machineById } from '../machines.js';
+
+const KEY = 'lsr.save.v2';
+export const createDefaultSave = () => ({ schemaVersion: 2, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false, selectedMachine: DEFAULT_MACHINE_ID,
   settings: { sfx: true } });
 export function mergeSave(target, saved) {
-  if (saved.schemaVersion !== 1
+  if (saved.schemaVersion !== 2
     || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)
     || typeof saved.tutorialCompleted !== 'boolean'
+    || !machineById(saved.selectedMachine)
+    || !isMachineUnlocked(saved.selectedMachine, saved.bestScore)
     || typeof saved.settings?.sfx !== 'boolean') throw new Error('Invalid save');
   for (const k of ['bestScore','bestDistance','bestCombo']) target[k] = saved[k];
   target.tutorialCompleted = saved.tutorialCompleted;
+  target.selectedMachine = saved.selectedMachine;
   target.settings.sfx = saved.settings.sfx;
   return target;
 }
@@ -38,6 +43,7 @@ export class LocalAdapter {
     } catch { this.saveFailed = true; }
   }
   setSetting(key,value) { if (!(key in this.data.settings)) return; this.data.settings[key] = value; this.dirty = true; this.save(true); }
+  setMachine(id) { if (!isMachineUnlocked(id,this.data.bestScore) || id === this.data.selectedMachine) return false; this.data.selectedMachine = id; this.dirty = true; this.save(true); return true; }
   completeTutorial() { this.data.tutorialCompleted = true; this.dirty = true; this.save(true); }
   // No SDK, network, or ad provider. UI explicitly resolves this local test request.
   requestRevive() {

@@ -4,6 +4,7 @@ import {Simulation,interval} from '../src/game/Simulation.js';
 import {CONFIG as C,VEHICLES,steer,multiplier,warningSeconds,nearPoints} from '../src/game/config.js';
 import {LocalAdapter} from '../src/platform/LocalAdapter.js';
 import {PlatformAdapter} from '../src/platform/PlatformAdapter.js';
+import {MACHINES,isMachineUnlocked} from '../src/machines.js';
 const close=(a,b,epsilon=1e-7)=>assert.ok(Math.abs(a-b)<epsilon,`${a} != ${b}`);
 function empty(){const s=new Simulation(12);s.vehicles.forEach(v=>v.active=false);s.spawnWave=()=>{};return s;}
 function advance(s,seconds,target=s.x){for(let i=0;i<Math.round(seconds/C.step);i++)s.step(C.step,{target,axis:0});}
@@ -158,10 +159,15 @@ const memory=()=>{const data=new Map();return {getItem:k=>data.get(k)??null,setI
 test('local save persists current settings and reloads best records',()=>{
   const storage=memory();storage.setItem('lsr.bestScore','99');const p=new LocalAdapter(storage);assert.equal(p.load().bestScore,0);
   p.record({score:123.9,distance:50.8,bestCombo:4});p.setSetting('sfx',false);p.completeTutorial();p.save(true);
-  const reload=new LocalAdapter(storage).load();assert.equal(reload.bestScore,123);assert.equal(reload.bestDistance,50);assert.deepEqual(reload.settings,{sfx:false});assert.equal(reload.tutorialCompleted,true);
+  const reload=new LocalAdapter(storage).load();assert.equal(reload.bestScore,123);assert.equal(reload.bestDistance,50);assert.deepEqual(reload.settings,{sfx:false});assert.equal(reload.tutorialCompleted,true);assert.equal(reload.selectedMachine,'street');
+});
+test('machines unlock from best score and only unlocked selections persist',()=>{
+  assert.deepEqual(MACHINES.map(machine=>machine.unlockScore),[0,5000,12000,25000,40000]);assert.equal(isMachineUnlocked('neon',4999),false);assert.equal(isMachineUnlocked('neon',5000),true);
+  const storage=memory(),p=new LocalAdapter(storage);p.load();assert.equal(p.setMachine('neon'),false);p.record({score:12000,distance:0,bestCombo:0});assert.equal(p.setMachine('racer'),true);assert.equal(p.setMachine('phantom'),false);
+  const reload=new LocalAdapter(storage).load();assert.equal(reload.selectedMachine,'racer');assert.equal(reload.bestScore,12000);
 });
 test('broken or unavailable save storage never prevents session play or overwrites data',()=>{
-  const storage=memory();storage.setItem('lsr.save.v1','broken');const p=new LocalAdapter(storage);p.load();assert.equal(p.writable,false);p.record({score:500,distance:30,bestCombo:2});p.save(true);assert.equal(p.data.bestScore,500);assert.equal(storage.getItem('lsr.save.v1'),'broken');
+  const storage=memory();storage.setItem('lsr.save.v2','broken');const p=new LocalAdapter(storage);p.load();assert.equal(p.writable,false);p.record({score:500,distance:30,bestCombo:2});p.save(true);assert.equal(p.data.bestScore,500);assert.equal(storage.getItem('lsr.save.v2'),'broken');
   const blocked=new LocalAdapter({getItem(){throw Error();}});assert.doesNotThrow(()=>blocked.load());
 });
 test('revive adapter resolves success only for true and deduplicates requests',async()=>{
@@ -186,7 +192,7 @@ test('save write failure keeps dirty data and retries on next request',()=>{
 test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
   const calls=[];
   const sdk={IN_PLAYABLES_ENV:true,
-    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:1,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,settings:{sfx:true}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
+    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:2,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,selectedMachine:'street',settings:{sfx:true}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
     engagement:{sendScore:async score=>calls.push(['score',score.value])},
     ads:{requestRewardedAd:async id=>{calls.push(['reward',id]);return true;},requestInterstitialAd:async()=>calls.push('interstitial')},
     system:{isAudioEnabled:()=>false,onAudioEnabledChange:()=>()=>{},onPause:()=>()=>{},onResume:()=>()=>{}}};
@@ -197,7 +203,7 @@ test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
 });
 test('non-playables adapter keeps using localStorage and local revive flow',async()=>{
   const storage=memory(),sdk={IN_PLAYABLES_ENV:false};const p=new PlatformAdapter({sdk,storage});await p.load();
-  p.record({score:45,distance:12,bestCombo:2});p.save(true);assert.equal(JSON.parse(storage.getItem('lsr.save.v1')).bestScore,45);
+  p.record({score:45,distance:12,bestCombo:2});p.save(true);assert.equal(JSON.parse(storage.getItem('lsr.save.v2')).bestScore,45);
   const revive=p.requestRevive();p.resolveRevive(true);assert.equal(await revive,true);assert.equal(await p.requestInterstitial(),false);
 });
 test('failed YouTube load cannot overwrite an unknown cloud save',async()=>{

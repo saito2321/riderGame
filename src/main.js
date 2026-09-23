@@ -3,6 +3,7 @@ import { CONFIG as C, multiplier, clamp } from './game/config.js';
 import { Input } from './game/Input.js';
 import { AudioSystem } from './game/AudioSystem.js';
 import { PlatformAdapter } from './platform/PlatformAdapter.js';
+import { MACHINES, isMachineUnlocked } from './machines.js';
 
 const $=s=>document.querySelector(s);
 const platform=new PlatformAdapter(),sim=new Simulation();
@@ -12,6 +13,7 @@ const input=new Input(canvas,()=>sim.x);
 let strings={},world,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
 let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=randomSeed();
+let machineIndex=0;
 let frameRequest=0,resumeWaiters=[];
 const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString('en-US');
@@ -21,7 +23,17 @@ function scheduleFrame(){if(!frameRequest&&!isPaused())frameRequest=requestAnima
 function waitForPlatformResume(){return platformPaused?new Promise(resolve=>resumeWaiters.push(resolve)):Promise.resolve();}
 function element(tag,text,className){const e=document.createElement(tag);e.textContent=text;if(className)e.className=className;return e;}
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
-function updateBest(){$('#high-score').textContent=number(save.bestScore);}
+function renderMachineSelector(){
+  const machine=MACHINES[machineIndex],unlocked=isMachineUnlocked(machine.id,save.bestScore);
+  $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-name').textContent=t(machine.nameKey);
+  $('#machine-status').textContent=unlocked?t('machine.selected'):`${t('machine.unlockAt')} ${number(machine.unlockScore)}`;
+  $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;
+}
+function browseMachine(direction){
+  machineIndex=(machineIndex+direction+MACHINES.length)%MACHINES.length;
+  const machine=MACHINES[machineIndex];if(isMachineUnlocked(machine.id,save.bestScore))platform.setMachine(machine.id);renderMachineSelector();
+}
+function updateBest(){$('#high-score').textContent=number(save.bestScore);renderMachineSelector();}
 function showToast(text){$('#toast').textContent=text;toastTimer=1.35;$('#toast').classList.add('visible');}
 function clearEffects(){toastTimer=0;impactTimer=0;$('#toast').textContent='';$('#toast').classList.remove('visible');$('#impact').style.opacity=0;}
 function saveNow(){platform.record(sim);platform.save(true);updateBest();}
@@ -170,8 +182,10 @@ async function init(){
   const [response,loadedSave]=await Promise.all([fetch('./locales/en.json'),platform.load()]);if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
-  updateBest();soundToggle.checked=save.settings.sfx;$('#close-modal').ariaLabel=t('ui.close');
+  machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;$('#close-modal').ariaLabel=t('ui.close');
+  $('#machine-selector').ariaLabel=t('machine.selection');$('#machine-prev').ariaLabel=t('machine.previous');$('#machine-next').ariaLabel=t('machine.next');
   soundToggle.addEventListener('change',()=>platform.setSetting('sfx',soundToggle.checked));
+  $('#machine-prev').addEventListener('click',()=>browseMachine(-1));$('#machine-next').addEventListener('click',()=>browseMachine(1));
   $('#play').addEventListener('click',()=>startRun());$('#pause-button').addEventListener('click',pause);
   $('#close-modal').addEventListener('click',()=>modal.close());
   modal.addEventListener('close',()=>{if(state==='tutorial'){goTitle();return;}if(state==='title')returnFocus?.focus();});

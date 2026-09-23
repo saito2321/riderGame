@@ -18,8 +18,24 @@
         <span aria-hidden="true">♪</span>
         <span class="sr-only">Sound effects and engine</span>
       </label>
-      <h1 id="game-title"><span data-i18n="title.lane">LANE</span> <span data-i18n="title.split">SPLIT</span><span class="rush" data-i18n="title.rush">RUSH</span></h1>
       <div class="high-score"><span data-i18n="ui.highScore">HighScore</span><strong id="high-score">0</strong></div>
+      <h1 id="game-title"><span data-i18n="title.lane">LANE</span> <span data-i18n="title.split">SPLIT</span><span class="rush" data-i18n="title.rush">RUSH</span></h1>
+      <div class="machine-selector" id="machine-selector" aria-label="Machine selection">
+        <button class="machine-arrow" id="machine-prev" type="button" aria-label="Previous machine">‹</button>
+        <div class="machine-card" aria-live="polite">
+          <div class="machine-preview" aria-hidden="true">
+            <svg viewBox="0 0 160 96" role="presentation">
+              <circle cx="42" cy="71" r="18"></circle><circle cx="119" cy="71" r="18"></circle>
+              <path d="M42 65h25l17-28h25l12 28h-12l-10-18H88L76 69H55z"></path>
+              <path d="M72 35h29l8 12H82zM65 31h24v7H65z"></path>
+            </svg>
+          </div>
+          <strong class="machine-name" id="machine-name">STREET</strong>
+          <span class="machine-status" id="machine-status">SELECTED</span>
+          <small class="machine-index" id="machine-index">1 / 5</small>
+        </div>
+        <button class="machine-arrow" id="machine-next" type="button" aria-label="Next machine">›</button>
+      </div>
       <div class="actions">
         <button class="play-button" id="play" data-i18n="ui.play">Play</button>
       </div>

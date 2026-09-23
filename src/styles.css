@@ -6,12 +6,17 @@ button{font:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlig
 button:focus-visible{outline:3px solid #54865d;outline-offset:4px}
 button:active{transform:translateY(2px)}
 .game-shell{width:min(100%,480px);min-height:100svh;margin:auto;background:var(--paper);padding:max(32px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(32px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));display:flex}
-.title-screen{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(40px,8svh,76px)}
+.title-screen{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(26px,5svh,48px);padding-top:52px}
 .sound-toggle{position:absolute;top:0;right:0;display:grid;place-items:center;width:52px;height:52px;border:1px solid #8fa18f;border-radius:50%;background:#e3e8da;color:#61716b;font-size:25px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #153b3b;transition:background .15s,color .15s,transform .15s}.sound-toggle:has(input:checked){background:var(--lime);color:var(--ink)}.sound-toggle:has(input:focus-visible){outline:3px solid #54865d;outline-offset:4px}.sound-toggle:active{transform:translateY(2px);box-shadow:0 1px 0 #153b3b}.sound-toggle input,.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.sound-toggle:not(:has(input:checked))::after{content:'';position:absolute;width:30px;height:2px;background:#7f4b4b;transform:rotate(-45deg)}
 h1{width:100%;text-align:center;font-size:clamp(36px,11.5vw,56px);line-height:.95;letter-spacing:-.06em;font-weight:950;margin:0;transform:skew(-7deg)}
 h1>.rush{display:block;font-size:1.4em;color:#638360;margin-top:6px}
-.high-score{display:grid;text-align:center;gap:12px;font-size:16px;letter-spacing:1px}
-.high-score strong{font-size:40px;letter-spacing:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;max-width:100%}
+.high-score{position:absolute;top:0;left:0;display:grid;text-align:left;gap:2px;font-size:11px;font-weight:700;letter-spacing:1px}
+.high-score strong{font-size:24px;letter-spacing:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;max-width:180px}
+.machine-selector{width:100%;max-width:320px;display:grid;grid-template-columns:52px minmax(0,1fr) 52px;align-items:center;gap:10px}
+.machine-arrow{width:52px;height:52px;border:1px solid #8fa18f;border-radius:50%;background:#e3e8da;color:var(--ink);font-size:38px;line-height:1;box-shadow:0 3px 0 #153b3b}.machine-arrow:hover{background:var(--lime)}
+.machine-card{min-width:0;display:grid;justify-items:center;gap:5px;text-align:center}.machine-preview{width:100%;height:104px;display:grid;place-items:center;border:1px solid #9eae9e;border-radius:10px;background:#e3ead8;color:#3f6756;transition:background .15s,color .15s}.machine-preview svg{width:150px;max-width:90%;height:88px;fill:currentColor}.machine-preview circle{stroke:currentColor;stroke-width:7;fill:none}
+.machine-name{font-size:18px;letter-spacing:1.5px}.machine-status{min-height:1.2em;font-size:10px;font-weight:900;letter-spacing:1px;color:#4f6f4b}.machine-index{font-size:9px;color:#728178;font-variant-numeric:tabular-nums}
+.machine-selector.locked .machine-preview{background:#b9bcb5;color:#090b0b}.machine-selector.locked .machine-name{color:#272b29}.machine-selector.locked .machine-status{color:#6d3737}
 .actions{width:100%;max-width:320px;display:grid;gap:16px}
 .play-button,.secondary-button{min-height:60px;display:flex;align-items:center;justify-content:center;border:1px solid var(--ink);border-radius:6px;font-size:20px;font-weight:700;padding:14px 22px;color:var(--ink);transition:background .15s,transform .15s}
 .play-button{background:var(--lime);box-shadow:0 4px 0 var(--ink)}
@@ -22,7 +27,7 @@ dialog{width:min(480px,calc(100% - 32px));max-height:calc(100svh - 32px);overflo
 
 
 @media(min-width:600px){.game-shell{box-shadow:0 0 80px #00191c55}}
-@media(max-height:540px){.title-screen{gap:24px}h1{font-size:36px}}
+@media(max-height:540px){.title-screen{gap:15px;padding-top:44px}h1{font-size:34px}.machine-preview{height:76px}.machine-preview svg{height:66px}.play-button{min-height:52px}.high-score strong{font-size:20px}}
 /* Game screens keep the same portrait shell; the renderer owns the entire play area. */
 [hidden]{display:none!important}
 .game-shell.in-game{padding:0;height:100dvh;min-height:0;position:relative;overflow:hidden;background:#bcd8cb}
