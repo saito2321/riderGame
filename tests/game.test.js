@@ -155,8 +155,8 @@ test('30 minute simulation remains finite, bounded and reuses vehicle slots',()=
   assert.ok(Number.isFinite(s.score)&&s.score>1000);assert.equal(s.vehicles.length,C.poolSize);assert.ok(s.vehicles.every((v,i)=>v===slots[i]));assert.ok(s.speed<=C.maxSpeed);assert.ok(s.nextId>100);
 });
 const memory=()=>{const data=new Map();return {getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),data};};
-test('local save migrates old score, persists settings, reloads best records',()=>{
-  const storage=memory();storage.setItem('lsr.bestScore','99');const p=new LocalAdapter(storage);assert.equal(p.load().bestScore,99);
+test('local save persists current settings and reloads best records',()=>{
+  const storage=memory();storage.setItem('lsr.bestScore','99');const p=new LocalAdapter(storage);assert.equal(p.load().bestScore,0);
   p.record({score:123.9,distance:50.8,bestCombo:4});p.setSetting('sfx',false);p.completeTutorial();p.save(true);
   const reload=new LocalAdapter(storage).load();assert.equal(reload.bestScore,123);assert.equal(reload.bestDistance,50);assert.deepEqual(reload.settings,{sfx:false});assert.equal(reload.tutorialCompleted,true);
 });
@@ -186,7 +186,7 @@ test('save write failure keeps dirty data and retries on next request',()=>{
 test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
   const calls=[];
   const sdk={IN_PLAYABLES_ENV:true,
-    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:1,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,settings:{music:false,sfx:true,haptics:true,reduceMotion:false}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
+    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:1,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,settings:{sfx:true}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
     engagement:{sendScore:async score=>calls.push(['score',score.value])},
     ads:{requestRewardedAd:async id=>{calls.push(['reward',id]);return true;},requestInterstitialAd:async()=>calls.push('interstitial')},
     system:{isAudioEnabled:()=>false,onAudioEnabledChange:()=>()=>{},onPause:()=>()=>{},onResume:()=>()=>{}}};

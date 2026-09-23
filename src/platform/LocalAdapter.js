@@ -2,10 +2,13 @@ const KEY = 'lsr.save.v1';
 export const createDefaultSave = () => ({ schemaVersion: 1, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false,
   settings: { sfx: true } });
 export function mergeSave(target, saved) {
-  if (saved.schemaVersion !== 1 || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)) throw new Error('Invalid save');
+  if (saved.schemaVersion !== 1
+    || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)
+    || typeof saved.tutorialCompleted !== 'boolean'
+    || typeof saved.settings?.sfx !== 'boolean') throw new Error('Invalid save');
   for (const k of ['bestScore','bestDistance','bestCombo']) target[k] = saved[k];
-  target.tutorialCompleted = saved.tutorialCompleted === true;
-  for (const k of Object.keys(target.settings)) if (typeof saved.settings?.[k] === 'boolean') target.settings[k] = saved.settings[k];
+  target.tutorialCompleted = saved.tutorialCompleted;
+  target.settings.sfx = saved.settings.sfx;
   return target;
 }
 export class LocalAdapter {
@@ -16,9 +19,6 @@ export class LocalAdapter {
       if (raw) {
         const saved = JSON.parse(raw);
         mergeSave(this.data, saved);
-      } else {
-        const oldScore = Number(this.storage.getItem('lsr.bestScore'));
-        if (Number.isSafeInteger(oldScore) && oldScore >= 0) this.data.bestScore = oldScore;
       }
     } catch { this.writable = false; }
     return this.data;
@@ -34,7 +34,6 @@ export class LocalAdapter {
     if (!this.writable || !this.dirty || (!force && now - this.lastSave < 1000)) return;
     try {
       this.storage.setItem(KEY, JSON.stringify(this.data));
-      this.storage.setItem('lsr.bestScore', String(this.data.bestScore));
       this.lastSave = now; this.dirty = false; this.saveFailed = false;
     } catch { this.saveFailed = true; }
   }
