@@ -7,10 +7,11 @@ import { PlatformAdapter } from './platform/PlatformAdapter.js';
 const $=s=>document.querySelector(s);
 const platform=new PlatformAdapter(),sim=new Simulation();
 let save=platform.data,audio;
-const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal');
+const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal'),soundToggle=$('#sound-toggle');
 const input=new Input(canvas,()=>sim.x);
 let strings={},world,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
-let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=Number(new URLSearchParams(location.search).get('seed')||12345)>>>0;
+const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
+let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=randomSeed();
 let frameRequest=0,resumeWaiters=[];
 const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString('en-US');
@@ -19,8 +20,7 @@ function stopFrame(){if(frameRequest){cancelAnimationFrame(frameRequest);frameRe
 function scheduleFrame(){if(!frameRequest&&!isPaused())frameRequest=requestAnimationFrame(frame);}
 function waitForPlatformResume(){return platformPaused?new Promise(resolve=>resumeWaiters.push(resolve)):Promise.resolve();}
 function element(tag,text,className){const e=document.createElement(tag);e.textContent=text;if(className)e.className=className;return e;}
-function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'option-button':'play-button');b.addEventListener('click',callback);return b;}
-function motion(){document.documentElement.classList.toggle('reduce-motion',save.settings.reduceMotion);}
+function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
 function updateBest(){$('#high-score').textContent=number(save.bestScore);}
 function showToast(text){$('#toast').textContent=text;toastTimer=1.35;$('#toast').classList.add('visible');}
 function clearEffects(){toastTimer=0;impactTimer=0;$('#toast').textContent='';$('#toast').classList.remove('visible');$('#impact').style.opacity=0;}
@@ -104,7 +104,7 @@ async function startRun(first=true){
   try{
     if(!world){const {World}=await import('./game/World.js');await waitForPlatformResume();world=new World(canvas);}
     rewardId++;platform.resolveRevive(false);pendingRewardResult=null;userPaused=false;pauseConfirming=false;recordAtStart=save.bestScore;
-    sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
+    seed=randomSeed();sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
     $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.resize();world.render(sim,save.settings);updateHUD();
     if(first&&!save.tutorialCompleted){state='tutorial';setActive();showTutorial();}else countdown();
   }catch(error){console.error(error);state='title';openError('error.title','error.detail');}
@@ -122,18 +122,6 @@ function showTutorial(){
   for(const key of ['tutorial.move','tutorial.near','tutorial.combo','tutorial.ramp'])list.append(element('li',t(key)));
   $('#modal-content').append(list,element('p',t('tutorial.keyboard'),'modal-copy'));
   $('#modal-action').textContent=t('tutorial.start');$('#modal-action').onclick=()=>{platform.completeTutorial();countdown();modal.close();};$('#modal-action').focus();
-}
-function showSettings(){
-  openModal('ui.settings');$('#modal-kicker').textContent=t('settings.kicker');
-  for(const key of Object.keys(save.settings)){
-    const label=document.createElement('label');label.className='setting-row';const toggle=document.createElement('input');toggle.type='checkbox';toggle.checked=save.settings[key];
-    toggle.addEventListener('change',()=>{platform.setSetting(key,toggle.checked);motion();});label.append(element('span',t(`settings.${key}`)),toggle);$('#modal-content').append(label);
-  }
-  const label=document.createElement('label');label.className='seed-row';const field=document.createElement('input');field.type='number';field.min=0;field.max=4294967295;field.step=1;field.value=seed;
-  field.addEventListener('change',()=>{if(field.validity.valid&&field.value!=='')seed=Number(field.value)>>>0;else field.value=seed;});
-  label.append(element('span',t('settings.seed')),field);$('#modal-content').append(label,element('p',t('settings.seedHint'),'modal-copy'));
-  if(!platform.writable||platform.saveFailed)$('#modal-content').append(element('p',t(platform.writable?'save.failed':'save.unavailable'),'save-note'));
-  $('#modal-action').textContent=t('ui.done');$('#modal-action').onclick=()=>modal.close();$('#modal-action').focus();
 }
 function openError(title,detail){openModal(title);$('#modal-content').append(element('p',t(detail),'modal-copy'));$('#modal-action').textContent=t('error.reload');$('#modal-action').onclick=()=>location.reload();}
 function updateHUD(){
@@ -162,7 +150,7 @@ function frame(timestamp){
         if(event.type==='near'){showToast(`${t(event.tier===300?'hud.veryClose':'hud.near')} +${event.points}`);audio.effect('near');}
         if(event.type==='jump'){showToast(`${t('hud.jump')} +${event.points}`);audio.effect('jump');}
         if(event.type==='speed')showToast(t('hud.speedUp'));
-        if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(save.settings.haptics&&navigator.vibrate)navigator.vibrate(60);}
+        if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(navigator.vibrate)navigator.vibrate(60);}
         if(event.type==='dead'){saveNow();state='crashing';crashElapsed=0;setActive();audio.pause();overlay.hidden=true;break;}
       }
       if(state!=='playing'){accumulator=0;break;}
@@ -172,18 +160,19 @@ function frame(timestamp){
   }else if(state==='crashing'){
     sim.advanceCrash(dt);
     crashElapsed+=dt;
-    if(crashElapsed>=(save.settings.reduceMotion ? .45 : 1.6)){state='result';renderPanel();platform.requestInterstitial();}
+    if(crashElapsed>=1.6){state='result';renderPanel();platform.requestInterstitial();}
   }
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)$('#toast').classList.remove('visible');}
-  impactTimer=Math.max(0,impactTimer-dt);$('#impact').style.opacity=save.settings.reduceMotion?0:impactTimer*1.7;
+  impactTimer=Math.max(0,impactTimer-dt);$('#impact').style.opacity=impactTimer*1.7;
   updateHUD();world.render(sim,save.settings,dt);
 }
 async function init(){
   const [response,loadedSave]=await Promise.all([fetch('./locales/en.json'),platform.load()]);if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
-  updateBest();motion();$('#close-modal').ariaLabel=t('ui.close');
-  $('#play').addEventListener('click',()=>startRun());$('#settings').addEventListener('click',showSettings);$('#pause-button').addEventListener('click',pause);
+  updateBest();soundToggle.checked=save.settings.sfx;$('#close-modal').ariaLabel=t('ui.close');
+  soundToggle.addEventListener('change',()=>platform.setSetting('sfx',soundToggle.checked));
+  $('#play').addEventListener('click',()=>startRun());$('#pause-button').addEventListener('click',pause);
   $('#close-modal').addEventListener('click',()=>modal.close());
   modal.addEventListener('close',()=>{if(state==='tutorial'){goTitle();return;}if(state==='title')returnFocus?.focus();});
   // The close event is asynchronous: tutorial state must change before modal.close().

@@ -1,6 +1,6 @@
 # Lane Split Rush
 
-スマホ縦画面向けのThree.js製すり抜けゲームです。トップページはタイトル、HighScore、Play、optionの4項目です。
+スマホ縦画面向けのThree.js製すり抜けゲームです。トップページはタイトル、HighScore、Playと、右上の♪チェックボックスで構成します。
 
 ## 起動
 
@@ -21,7 +21,7 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 - オレンジ色のジャンプ台付き大型車は、後方の中央から乗るとジャンプして500点。横からぶつかるとライフが減ります。
 - 体力は3。衝突で1減り、短時間無敵になります。0で結果画面へ進み、RETRYですぐ再挑戦できます。
 - PAUSE / Escで一時停止。タブ移動やウィンドウのフォーカス喪失でも停止し、RESUMEで再開します。
-- optionでMUSIC / SFX / HAPTICS / REDUCE MOTIONと交通のSeedを変更できます。振動は対応する端末だけで動作します。
+- タイトル右上の♪チェックボックスで、効果音とエンジン音をまとめてON / OFFできます。BGMはありません。振動は対応端末で常にON、動き抑制は行いません。
 
 ## 実装
 
@@ -32,7 +32,7 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 - スコアが10,000点を超えると、左右の端から反対側まで2車線を一度に移動するCarが出現します。
 - 生成・車線変更は1秒の反応猶予と実際の横移動処理を使った保守的な経路チェックで制限します。通過するまでの速度範囲を包絡し、変更車線の全幅を予約します。成立しない候補は減らすか見送ります。
 - 交通密度と初期配置は、ローカルでコンボを試しやすい試作バランスです。端末ごとの視認性や遮蔽を含む全条件の品質保証は、継続プレイテストが必要です。
-- 簡易BGM、エンジン、得点・衝突音をWeb Audioで生成します。音声はユーザー操作後だけ開始します。
+- エンジン、得点・衝突音をWeb Audioで生成します。音声はユーザー操作後だけ開始します。
 
 ## Platform Adapter
 
@@ -45,13 +45,13 @@ http://localhost:5173 を開いてください。Three.jsはnpmから取得し�
 | Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止と明示的なRESUME |
 | 復活 | `requestRewardedAd('revive-one-health')` | REVIVE (LOCAL) → GRANT REVIVE / CANCEL |
 | インタースティシャル広告 | ゲームオーバー後に `requestInterstitialAd()` | 呼び出さない |
-| 音声制御 | YouTubeの音声設定とゲーム内の個別設定 | ゲーム内設定とWeb Audio |
+| 音声制御 | YouTubeの音声設定と♪チェックボックス | ♪チェックボックスとWeb Audio |
 
 ゲームルームではリワード広告の結果が `true` の場合だけ、ゲームルーム外ではGRANT REVIVEを選んだ場合だけ体力1で復活します。復活は1ラン1回で、成功後に安全地帯とカウントダウンを挟みます。広告の失敗やキャンセル時は結果画面へ戻ります。
 
-Best Score、Best Distance、Best Combo、チュートリアル完了と設定を保存します。旧 `lsr.bestScore` と `lsr.title.reduceMotion` は初回読込時に移行します。不正データは上書きせずセッション内でプレイできます。保存制限や失敗時は結果画面・optionに表示します。
+Best Score、Best Distance、Best Combo、チュートリアル完了と効果音設定を保存します。旧 `lsr.bestScore` は初回読込時に移行します。不正データは上書きせずセッション内でプレイできます。保存制限や失敗時は結果画面に表示します。
 
-`?seed=12345` またはoptionのTRAFFIC SEEDで交通の乱数を固定できます。同じSeedと同じ入力で同じ交通になります。
+交通のSeedはラン開始ごとにランダムに生成します。テストではSimulationへSeedを直接注入して、同じSeedと同じ入力による再現性を検証します。
 
 ## 検証・ビルド
 

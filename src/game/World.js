@@ -189,13 +189,13 @@ export class World {
     damage.tail.rotation.z=sim.health<2?.18:0;
     // The simulation freezes on death, so the fall and spin use render time.
     this.crashElapsed=sim.dead?Math.min(1.6,this.crashElapsed+frameDt):0;
-    const fall=Math.min(1,this.crashElapsed/(settings.reduceMotion ? .45 : .65));
+    const fall=Math.min(1,this.crashElapsed/.65);
     const fallEase=fall*fall*(3-2*fall);
     const spin=Math.min(1,Math.max(0,(this.crashElapsed-.15)/1.45));
     const spinEase=spin*spin*(3-2*spin);
-    damage.visual.rotation.z=sim.dead?-Math.PI*.46*fallEase:sim.bank*(settings.reduceMotion?C.reducedBikeLean:C.bikeLean);
+    damage.visual.rotation.z=sim.dead?-Math.PI*.46*fallEase:sim.bank*C.bikeLean;
     damage.visual.position.y=sim.dead ? .42*fallEase : 0;
-    this.bike.rotation.y=sim.dead&&!settings.reduceMotion?spinEase*Math.PI*3.2:0;
+    this.bike.rotation.y=sim.dead?spinEase*Math.PI*3.2:0;
     const jumpPhase=sim.jumpTime>0?1-sim.jumpTime/sim.jumpDuration:0;
     const flightHeight=jumpPhase<.3?Math.sin(Math.PI*jumpPhase/.6):jumpPhase>.7?Math.sin(Math.PI*(1-jumpPhase)/.6):1;
     this.bike.position.y=sim.dead?0:jumpPhase?flightHeight*3.4:0;
@@ -203,7 +203,7 @@ export class World {
     damage.visual.rotation.x=jumpPhase?Math.sin(Math.PI*2*jumpPhase)*.16:0;
     damage.flame.visible=sim.turbo>.05 && !sim.dead;damage.flame.scale.y=.6+sim.turbo*.24;
     for(const wheel of damage.wheels)wheel.rotation.x=-sim.distance*2;
-    this.bike.visible=sim.dead || sim.invincible<=0 || settings.reduceMotion || Math.floor(sim.time*8)%2===0;
+    this.bike.visible=sim.dead || sim.invincible<=0 || Math.floor(sim.time*8)%2===0;
     for(let i=0;i<this.traffic.length;i++) {
       const v=sim.vehicles[i],variants=this.traffic[i];
       for(const [type,g] of Object.entries(variants)) g.visible=v.active&&type===v.type;
@@ -220,7 +220,7 @@ export class World {
     }
     let coinIndex=0;
     for(const coin of sim.coins.items)if(coin.active){
-      const angle=settings.reduceMotion?0:sim.time*1.8;
+      const angle=sim.time*1.8;
       this.matrix.position.set(coin.x,.85,coin.z);this.matrix.rotation.set(Math.PI/2,angle,0,'YXZ');this.matrix.scale.set(1,1,1);this.matrix.updateMatrix();this.coinDiscs.setMatrixAt(coinIndex,this.matrix.matrix);
       this.matrix.position.set(coin.x+Math.sin(angle)*.055,.85,coin.z+Math.cos(angle)*.055);this.matrix.rotation.set(0,angle,0);this.matrix.scale.set(.055,.35,.016);this.matrix.updateMatrix();this.coinMarks.setMatrixAt(coinIndex++,this.matrix.matrix);
     }

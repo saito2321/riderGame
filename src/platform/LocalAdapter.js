@@ -1,6 +1,6 @@
 const KEY = 'lsr.save.v1';
 export const createDefaultSave = () => ({ schemaVersion: 1, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false,
-  settings: { music: true, sfx: true, haptics: true, reduceMotion: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches } });
+  settings: { sfx: true } });
 export function mergeSave(target, saved) {
   if (saved.schemaVersion !== 1 || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)) throw new Error('Invalid save');
   for (const k of ['bestScore','bestDistance','bestCombo']) target[k] = saved[k];
@@ -19,8 +19,6 @@ export class LocalAdapter {
       } else {
         const oldScore = Number(this.storage.getItem('lsr.bestScore'));
         if (Number.isSafeInteger(oldScore) && oldScore >= 0) this.data.bestScore = oldScore;
-        const oldMotion = this.storage.getItem('lsr.title.reduceMotion');
-        if (oldMotion !== null) this.data.settings.reduceMotion = oldMotion === 'true';
       }
     } catch { this.writable = false; }
     return this.data;

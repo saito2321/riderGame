@@ -158,7 +158,7 @@ const memory=()=>{const data=new Map();return {getItem:k=>data.get(k)??null,setI
 test('local save migrates old score, persists settings, reloads best records',()=>{
   const storage=memory();storage.setItem('lsr.bestScore','99');const p=new LocalAdapter(storage);assert.equal(p.load().bestScore,99);
   p.record({score:123.9,distance:50.8,bestCombo:4});p.setSetting('sfx',false);p.completeTutorial();p.save(true);
-  const reload=new LocalAdapter(storage).load();assert.equal(reload.bestScore,123);assert.equal(reload.bestDistance,50);assert.equal(reload.settings.sfx,false);assert.equal(reload.tutorialCompleted,true);
+  const reload=new LocalAdapter(storage).load();assert.equal(reload.bestScore,123);assert.equal(reload.bestDistance,50);assert.deepEqual(reload.settings,{sfx:false});assert.equal(reload.tutorialCompleted,true);
 });
 test('broken or unavailable save storage never prevents session play or overwrites data',()=>{
   const storage=memory();storage.setItem('lsr.save.v1','broken');const p=new LocalAdapter(storage);p.load();assert.equal(p.writable,false);p.record({score:500,distance:30,bestCombo:2});p.save(true);assert.equal(p.data.bestScore,500);assert.equal(storage.getItem('lsr.save.v1'),'broken');

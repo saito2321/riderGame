@@ -1,5 +1,5 @@
 export class AudioSystem {
-  constructor(settings, systemEnabled = true) { this.settings=settings; this.systemEnabled=systemEnabled; this.context=null; this.beat=0; this.note=0; }
+  constructor(settings, systemEnabled = true) { this.settings=settings; this.systemEnabled=systemEnabled; this.context=null; }
   async unlock() {
     try {
       if(!this.context){
@@ -24,8 +24,6 @@ export class AudioSystem {
     if(!this.systemEnabled||!this.context)return;
     this.engine.frequency.setTargetAtTime(40+sim.speed*2.2+sim.turbo*3,this.context.currentTime,.08);
     this.engineGain.gain.setTargetAtTime(this.settings.sfx ? .22 : 0,this.context.currentTime,.06);
-    this.beat+=dt;
-    if(this.settings.music&&this.beat>.24){this.beat=0;this.tone([110,164.81,220,164.81,130.81,196,261.63,196][this.note++%8],.19,'triangle',.11);}
   }
   pause() { if(this.context){this.engineGain.gain.setValueAtTime(0,this.context.currentTime);this.context.suspend().catch(()=>{});} }
   setSystemEnabled(enabled) { this.systemEnabled=enabled===true; if(!this.systemEnabled)this.pause(); }

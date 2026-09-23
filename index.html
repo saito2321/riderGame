@@ -13,11 +13,15 @@
 <body>
   <main class="game-shell">
     <section class="title-screen" aria-labelledby="game-title">
+      <label class="sound-toggle" title="Sound effects and engine">
+        <input id="sound-toggle" type="checkbox" checked>
+        <span aria-hidden="true">♪</span>
+        <span class="sr-only">Sound effects and engine</span>
+      </label>
       <h1 id="game-title"><span data-i18n="title.lane">LANE</span> <span data-i18n="title.split">SPLIT</span><span class="rush" data-i18n="title.rush">RUSH</span></h1>
       <div class="high-score"><span data-i18n="ui.highScore">HighScore</span><strong id="high-score">0</strong></div>
       <div class="actions">
         <button class="play-button" id="play" data-i18n="ui.play">Play</button>
-        <button class="option-button" id="settings" data-i18n="ui.option">option</button>
       </div>
     </section>
     <section id="game-stage" aria-label="Game" hidden>

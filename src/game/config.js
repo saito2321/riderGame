@@ -1,7 +1,7 @@
 export const CONFIG = Object.freeze({
   step: 1 / 120, roadWidth: 10.5, laneWidth: 3.5, bikeWidth: .6, bikeLength: 2,
   edge: 4.4, steeringSpeed: 6, smoothing: .12, sensitivity: 1.15,
-  bikeLean: .56, reducedBikeLean: .28, leanInTime: .035, leanOutTime: .065,
+  bikeLean: .56, leanInTime: .035, leanOutTime: .065,
   leanSpeedDeadzone: .08, minimumMovingBank: .55,
   health: 2, invincible: 1.25, reviveInvincible: 2, vehicleSpeed: 12,
   baseSpeed: 80 / 3.6, minSpeed: 80 / 3.6, maxBaseSpeed: 999 / 3.6, maxSpeed: 999 / 3.6,
