@@ -3,7 +3,7 @@ import { CONFIG as C, VEHICLES } from './config.js';
 
 import { environment, roadMaterial, createCity, coachworkGeometry, batchParts } from './VisualAssets.js';
 
-import { createBike, createScooter, createSuperSport, createTrafficBike } from './BikeModel.js';
+import { createBike, createScooter, createSuperSport, createHorse, createTrafficBike } from './BikeModel.js';
 
 const bodyGeometry=coachworkGeometry();
 const tireGeometry=new THREE.TorusGeometry(1,.24,6,20);
@@ -148,7 +148,7 @@ export class World {
     for(const coins of [this.coinDiscs,this.coinMarks]){coins.count=0;coins.frustumCulled=false;coins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.scene.add(coins);}
     this.matrix=new THREE.Object3D();
     this.city=createCity(this.scene,boxGeometry);
-    this.playerMachines={street:createBike(shadow),scooter:createScooter(shadow),supersport:createSuperSport(shadow)};
+    this.playerMachines={street:createBike(shadow),scooter:createScooter(shadow),supersport:createSuperSport(shadow),horse:createHorse(shadow)};
     for(const machine of Object.values(this.playerMachines)){machine.visible=false;this.scene.add(machine);}this.bike=this.playerMachines.street;
     // Clone only once at startup; traffic motorcycles share all geometry/materials.
     const trafficBike=createTrafficBike(shadow);
@@ -209,6 +209,7 @@ export class World {
     damage.visual.rotation.x=jumpPhase?Math.sin(Math.PI*2*jumpPhase)*.16:0;
     damage.flame.visible=sim.turbo>.05 && !sim.dead;damage.flame.scale.y=.6+sim.turbo*.24;
     for(const wheel of damage.wheels)wheel.rotation.x=-sim.distance*2;
+    for(const leg of damage.legs??[])leg.rotation.x=Math.sin(sim.distance*1.7+leg.userData.phase)*.42;
     this.bike.visible=sim.dead || sim.invincible<=0 || Math.floor(sim.time*8)%2===0;
     for(let i=0;i<this.traffic.length;i++) {
       const v=sim.vehicles[i],variants=this.traffic[i];

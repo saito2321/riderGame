@@ -8,6 +8,8 @@ const leather=new THREE.MeshStandardMaterial({color:'#202a35',metalness:0,roughn
 const paint=new THREE.MeshStandardMaterial({color:'#95b630',metalness:.5,roughness:.25});
 const scooterPaint=new THREE.MeshStandardMaterial({color:'#35c8ba',metalness:.42,roughness:.28});
 const superSportPaint=new THREE.MeshStandardMaterial({color:'#e34c36',metalness:.55,roughness:.22});
+const horseCoat=new THREE.MeshStandardMaterial({color:'#9a5b32',metalness:0,roughness:.86});
+const horseDark=new THREE.MeshStandardMaterial({color:'#321f19',metalness:0,roughness:.94});
 const helmetPaint=new THREE.MeshStandardMaterial({color:'#cfd4d8',metalness:.18,roughness:.3});
 const visor=new THREE.MeshStandardMaterial({color:'#162837',metalness:.65,roughness:.12});
 const red=new THREE.MeshBasicMaterial({color:'#ff2539'});
@@ -198,6 +200,43 @@ export function createSuperSport(shadow){
   const scratches=mesh(g,cube,metal,.355,.79,-.24,.008,.021,.2);scratches.visible=false;
   batchParts(g,new Set([fairing,tail,frontLight,exhaust,flame,scratches]));
   root.userData={machineType:'supersport',wheels,paint:fairing,healthyPaint:superSportPaint,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow,screen};return root;
+}
+
+export function createHorse(shadow){
+  const root=new THREE.Group(),g=new THREE.Group();root.add(g);const groundShadow=shadow(root,.92,2.35);
+  const body=shell(g,horseCoat,[[-.66,.96,.001,.001],[-.5,1.02,.32,.31],[.05,1.05,.4,.34],[.53,1.02,.33,.3],[.7,.94,.001,.001]]);
+  // The neck rises toward the road while the head, muzzle, mane and ears keep a readable horse profile from behind.
+  link(g,horseCoat,[0,1.12,-.45],[0,1.48,-.76],.23,.16);
+  const head=mesh(g,sphere,horseCoat,0,1.59,-.84,.22,.28,.3);head.rotation.x=-.18;
+  const muzzle=mesh(g,sphere,horseDark,0,1.5,-1.08,.17,.14,.24);muzzle.rotation.x=-.18;
+  for(const side of [-1,1]){
+    const ear=mesh(g,new THREE.ConeGeometry(.065,.25,7),horseCoat,side*.11,1.91,-.77);ear.rotation.x=-.18;
+    mesh(g,sphere,black,side*.13,1.68,-1.01,.032,.038,.025);
+  }
+  for(let i=0;i<5;i++){const mane=mesh(g,new THREE.ConeGeometry(.075,.28,6),horseDark,0,1.4+i*.09,-.55-i*.055);mane.rotation.x=-.65;}
+  mesh(g,sphere,leather,0,1.3,.12,.31,.055,.38);mesh(g,cube,gold,0,1.27,.12,.35,.025,.42);
+  const legs=[];
+  for(const [index,z] of [-.43,.43].entries())for(const side of [-1,1]){
+    const leg=new THREE.Group();leg.position.set(side*.24,.94,z);g.add(leg);
+    link(leg,horseCoat,[0,0,0],[0,-.48,index?-.05:.08],.095,.07);link(leg,horseDark,[0,-.46,index?-.05:.08],[0,-.82,index?.06:-.02],.066,.045);
+    mesh(leg,cube,black,0,-.84,index?.08:-.04,.075,.055,.13);leg.userData.phase=(index*2+(side>0?1:0))*Math.PI/2;legs.push(leg);
+  }
+  const tail=new THREE.Group();tail.position.set(0,1.17,.64);g.add(tail);link(tail,horseDark,[0,0,0],[0,-.22,.28],.075,.045);link(tail,horseDark,[0,-.2,.27],[0,-.5,.42],.055,.025);
+  // A rider and helmet retain the same player identity while sitting upright in the saddle.
+  mesh(g,sphere,leather,0,1.37,.15,.2,.13,.18);
+  const torso=mesh(g,sphere,leather,0,1.61,.04,.245,.31,.17);torso.rotation.x=-.18;
+  for(const side of [-1,1]){
+    link(g,leather,[side*.21,1.73,-.03],[side*.27,1.5,-.38],.078,.06);link(g,leather,[side*.27,1.5,-.38],[side*.17,1.45,-.7],.059,.042);mesh(g,sphere,black,side*.17,1.45,-.7,.05,.05,.065);
+    link(g,leather,[side*.15,1.4,.18],[side*.28,1.1,.02],.102,.078);link(g,leather,[side*.28,1.1,.02],[side*.25,.79,.28],.075,.052);mesh(g,sphere,black,side*.25,.76,.2,.065,.06,.15);
+  }
+  const helmet=mesh(g,sphere,helmetPaint,0,2.03,-.08,.21,.235,.235);helmet.rotation.x=-.06;
+  const face=mesh(g,sphere,visor,0,2.04,-.21,.19,.105,.13);face.rotation.x=-.06;
+  const frontLight=mesh(g,cube,white,0,1.76,-1.065,.07,.11,.015);frontLight.rotation.x=-.18;
+  const exhaust=mesh(g,sphere,horseDark,0,1.02,.69,.08,.08,.08);
+  const flame=mesh(g,new THREE.ConeGeometry(.09,.62,7),new THREE.MeshBasicMaterial({color:'#9bf5ff'}),0,1.02,1.05);flame.rotation.x=Math.PI/2;flame.visible=false;
+  const scratches=mesh(g,cube,metal,.36,1.05,.08,.008,.02,.2);scratches.visible=false;
+  batchParts(g,new Set([body,tail,frontLight,exhaust,flame,scratches]));
+  root.userData={machineType:'horse',wheels:[],legs,paint:body,healthyPaint:horseCoat,tail,frontLight,exhaust,flame,scratches,visual:g,groundShadow};return root;
 }
 
 

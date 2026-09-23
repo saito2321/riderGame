@@ -2,7 +2,7 @@ export const MACHINES = Object.freeze([
   { id: 'street', nameKey: 'machine.street', unlockScore: 0 },
   { id: 'scooter', nameKey: 'machine.scooter', unlockScore: 5000 },
   { id: 'supersport', nameKey: 'machine.supersport', unlockScore: 10000 },
-  { id: 'cyber', nameKey: 'machine.cyber', unlockScore: 20000 },
+  { id: 'horse', nameKey: 'machine.horse', unlockScore: 20000 },
   { id: 'phantom', nameKey: 'machine.phantom', unlockScore: 30000 }
 ]);
 
