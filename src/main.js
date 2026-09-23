@@ -9,10 +9,15 @@ const platform=new PlatformAdapter(),sim=new Simulation();
 let save=platform.data,audio;
 const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal');
 const input=new Input(canvas,()=>sim.x);
-let strings={},world,state='title',paused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
+let strings={},world,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=Number(new URLSearchParams(location.search).get('seed')||12345)>>>0;
+let frameRequest=0,resumeWaiters=[];
 const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString('en-US');
+const isPaused=()=>userPaused||platformPaused;
+function stopFrame(){if(frameRequest){cancelAnimationFrame(frameRequest);frameRequest=0;}}
+function scheduleFrame(){if(!frameRequest&&!isPaused())frameRequest=requestAnimationFrame(frame);}
+function waitForPlatformResume(){return platformPaused?new Promise(resolve=>resumeWaiters.push(resolve)):Promise.resolve();}
 function element(tag,text,className){const e=document.createElement(tag);e.textContent=text;if(className)e.className=className;return e;}
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'option-button':'play-button');b.addEventListener('click',callback);return b;}
 function motion(){document.documentElement.classList.toggle('reduce-motion',save.settings.reduceMotion);}
@@ -20,11 +25,11 @@ function updateBest(){$('#high-score').textContent=number(save.bestScore);}
 function showToast(text){$('#toast').textContent=text;toastTimer=1.35;$('#toast').classList.add('visible');}
 function clearEffects(){toastTimer=0;impactTimer=0;$('#toast').textContent='';$('#toast').classList.remove('visible');$('#impact').style.opacity=0;}
 function saveNow(){platform.record(sim);platform.save(true);updateBest();}
-function setActive(){input.setEnabled(state==='playing'&&!paused);$('#pause-button').hidden=!['playing','countdown'].includes(state);}
+function setActive(){input.setEnabled(state==='playing'&&!isPaused());$('#pause-button').hidden=!['playing','countdown'].includes(state);}
 function panel(title){overlay.replaceChildren();overlay.hidden=false;const p=document.createElement('div');p.className='game-panel';p.setAttribute('role','dialog');p.setAttribute('aria-modal','true');p.setAttribute('aria-labelledby','game-panel-title');const heading=element('h2',title);heading.id='game-panel-title';p.append(heading);overlay.append(p);return p;}
 function renderPanel(){
   overlay.hidden=true;
-  if(paused){
+  if(userPaused){
     if(pauseConfirming){const p=panel(t('pause.titleConfirm'));p.append(element('p',t('pause.titleDetail'),'modal-copy'),button('pause.returnTitle',goTitle),button('revive.cancel',()=>{pauseConfirming=false;renderPanel();},true));p.querySelector('button').focus();return;}
     const p=panel(t('ui.paused'));p.append(button('ui.resume',resume),button('ui.title',()=>{pauseConfirming=true;renderPanel();},true));p.querySelector('button').focus();return;
   }
@@ -51,13 +56,29 @@ function renderPanel(){
   }
 }
 function pause(){
-  if(paused||!['playing','countdown','reward'].includes(state))return;
-  paused=true;pauseConfirming=false;input.setEnabled(false);audio.pause();saveNow();accumulator=0;renderPanel();
+  if(userPaused||platformPaused||!['playing','countdown','reward'].includes(state))return;
+  userPaused=true;pauseConfirming=false;input.setEnabled(false);audio.pause();saveNow();accumulator=0;previousTime=0;stopFrame();renderPanel();
 }
 function resume(){
-  paused=false;pauseConfirming=false;previousTime=0;accumulator=0;if(['playing','countdown'].includes(state))audio.unlock();
+  if(!userPaused)return;
+  userPaused=false;pauseConfirming=false;previousTime=0;accumulator=0;
+  if(platformPaused){setActive();return;}
+  if(['playing','countdown'].includes(state))audio.unlock();
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
-  setActive();renderPanel();if(state==='playing')canvas.focus();
+  setActive();renderPanel();scheduleFrame();if(state==='playing')canvas.focus();
+}
+function platformPause(){
+  if(platformPaused)return;
+  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio.pause();saveNow();accumulator=0;previousTime=0;stopFrame();
+}
+function platformResume(){
+  if(!platformPaused)return;
+  platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;
+  const waiters=resumeWaiters;resumeWaiters=[];for(const resolve of waiters)resolve();
+  if(userPaused){setActive();return;}
+  if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
+  if(['playing','countdown'].includes(state))audio.unlock();
+  setActive();renderPanel();scheduleFrame();if(state==='playing')canvas.focus();
 }
 function countdown(){state='countdown';remaining=3.45;accumulator=0;previousTime=0;setActive();renderPanel();}
 async function requestRevive(){
@@ -65,23 +86,24 @@ async function requestRevive(){
   state='reward';setActive();audio.pause();const token=++rewardId;renderPanel();
   const earned=await platform.requestRevive();
   if(token!==rewardId||state!=='reward')return;
-  if(paused)pendingRewardResult=earned;else finishReward(earned);
+  if(isPaused())pendingRewardResult=earned;else finishReward(earned);
 }
 function finishReward(earned){
   if(earned===true&&sim.revive()){audio.unlock();clearEffects();countdown();}
   else{state='result';renderPanel();}
 }
 function goTitle(){
-  rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;pauseConfirming=false;state='title';input.setEnabled(false);audio.pause();saveNow();
+  rewardId++;platform.resolveRevive(false);pendingRewardResult=null;userPaused=false;pauseConfirming=false;state='title';input.setEnabled(false);audio.pause();saveNow();
   stage.hidden=true;$('.title-screen').hidden=false;$('.game-shell').classList.remove('in-game');overlay.hidden=true;$('#play').focus();
 }
 async function startRun(first=true){
-  if(state==='loading')return;
+  if(platformPaused||state==='loading')return;
   state='loading';$('#play').disabled=true;$('#play').textContent=t('ui.loading');
   await audio.unlock();
+  await waitForPlatformResume();
   try{
-    if(!world){const {World}=await import('./game/World.js');world=new World(canvas);}
-    rewardId++;platform.resolveRevive(false);pendingRewardResult=null;paused=false;pauseConfirming=false;recordAtStart=save.bestScore;
+    if(!world){const {World}=await import('./game/World.js');await waitForPlatformResume();world=new World(canvas);}
+    rewardId++;platform.resolveRevive(false);pendingRewardResult=null;userPaused=false;pauseConfirming=false;recordAtStart=save.bestScore;
     sim.reset(seed);input.clear();clearEffects();crashElapsed=0;
     $('.title-screen').hidden=true;stage.hidden=false;$('.game-shell').classList.add('in-game');world.resize();world.render(sim,save.settings);updateHUD();
     if(first&&!save.tutorialCompleted){state='tutorial';setActive();showTutorial();}else countdown();
@@ -124,9 +146,9 @@ function updateHUD(){
   stage.classList.toggle('turbo',sim.turbo>.05);
 }
 function frame(timestamp){
-  requestAnimationFrame(frame);
+  frameRequest=0;if(isPaused())return;scheduleFrame();
   const dt=previousTime?Math.min((timestamp-previousTime)/1000,.1):0;previousTime=timestamp;
-  if(paused||!world||!['playing','countdown','tutorial','crashing'].includes(state))return;
+  if(!world||!['playing','countdown','tutorial','crashing'].includes(state))return;
   if(state==='countdown'){
     const old=Math.ceil(remaining-.45);remaining-=dt;
     if(Math.ceil(remaining-.45)!==old)audio.effect('count');
@@ -167,18 +189,19 @@ async function init(){
   // The close event is asynchronous: tutorial state must change before modal.close().
   modal.addEventListener('cancel',()=>{if(state==='tutorial')goTitle();});
   document.addEventListener('keydown',e=>{
+    if(platformPaused)return;
     if(e.key==='Tab'&&!overlay.hidden&&overlay.querySelector('.game-panel')){
       const buttons=[...overlay.querySelectorAll('button')],first=buttons[0],last=buttons.at(-1);
       if(e.shiftKey&&(document.activeElement===first||!overlay.contains(document.activeElement))){e.preventDefault();last?.focus();}
       else if(!e.shiftKey&&(document.activeElement===last||!overlay.contains(document.activeElement))){e.preventDefault();first?.focus();}
     }
-    if(e.key==='Escape'&&!modal.open){if(paused&&pauseConfirming){pauseConfirming=false;renderPanel();}else if(paused)resume();else pause();}
+    if(e.key==='Escape'&&!modal.open){if(userPaused&&pauseConfirming){pauseConfirming=false;renderPanel();}else if(userPaused)resume();else pause();}
     if(state==='title'&&!modal.open&&!e.repeat&&(e.key==='Enter'||e.code==='Space')&&(document.activeElement===document.body||document.activeElement===document.documentElement)){e.preventDefault();startRun();}
   });
   canvas.addEventListener('renderer-lost',()=>{pause();saveNow();openError('error.context','error.contextDetail');});
-  platform.onAudioEnabledChange(enabled=>{audio.setSystemEnabled(enabled);if(enabled&&state==='playing'&&!paused)audio.unlock();});
-  platform.onPause(pause,resume);
+  platform.onAudioEnabledChange(enabled=>{audio.setSystemEnabled(enabled);if(enabled&&state==='playing'&&!isPaused())audio.unlock();});
+  platform.onPause(platformPause,platformResume);
   await new Promise(resolve=>requestAnimationFrame(()=>{platform.firstFrameReady();resolve();}));
-  platform.gameReady();requestAnimationFrame(frame);
+  platform.gameReady();scheduleFrame();
 }
 init().catch(error=>{console.error(error);$('#load-error').hidden=false;});
