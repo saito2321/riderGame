@@ -66,8 +66,8 @@ function renderPanel(){
     }
     p.append(stats);
     if(!platform.writable||platform.saveFailed)p.append(element('p',t(platform.writable?'save.failed':'save.unavailable'),'save-note'));
-    p.append(button('ui.retry',()=>startRun(false)));
-    if(!sim.revived){p.append(button(platform.isPlayables?'revive.adOffer':'revive.offer',requestRevive,true),element('p',t('revive.hint'),'revive-hint'));}
+    if(!sim.revived){p.append(element('p',t('revive.hint'),'revive-hint'),button(platform.isPlayables?'revive.adOffer':'revive.offer',requestRevive));}
+    p.append(button('ui.retry',()=>startRun(false),!sim.revived));
     p.append(button('ui.title',goTitle,true));p.querySelector('button').focus();
   }
 }
