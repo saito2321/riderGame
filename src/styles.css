@@ -1,7 +1,7 @@
 @charset "UTF-8";
 :root{font-family:Arial,Helvetica,sans-serif;color:#153b3b;background:#102c30;font-synthesis:none;color-scheme:light;--lime:#d6ef7c;--ink:#153b3b;--paper:#f3f2e9}
 *{box-sizing:border-box}
-body{margin:0;min-width:280px}
+body{margin:0;min-width:0}
 button{font:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 button:focus-visible{outline:3px solid #54865d;outline-offset:4px}
 button:active{transform:translateY(2px)}
@@ -31,6 +31,28 @@ dialog{width:min(480px,calc(100% - 32px));max-height:calc(100svh - 32px);overflo
 
 @media(min-width:600px){.game-shell{box-shadow:0 0 80px #00191c55}}
 @media(max-height:540px){.title-screen{gap:15px;padding-top:44px}h1{font-size:34px}.machine-preview{height:76px}.play-button{min-height:52px}.high-score strong{font-size:20px}}
+@media(max-width:300px){.game-shell{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}.machine-selector{grid-template-columns:48px minmax(0,1fr) 48px;gap:6px}.machine-arrow,.setting-toggle{width:48px;height:48px}}
+@media(orientation:landscape) and (max-height:540px){
+  .game-shell:not(.in-game){width:min(100%,960px);min-height:100svh;padding:max(8px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  .title-screen{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);grid-template-rows:auto auto;align-content:center;justify-items:center;gap:8px 16px;padding-top:48px}
+  .title-screen h1{grid-column:1;grid-row:1;font-size:clamp(20px,4vw,38px)}
+  .title-screen h1>.rush{font-size:1.15em;margin-top:0}
+  .title-bike-mark{top:-32px;left:-74px;width:150px}
+  .title-screen .machine-selector{grid-column:2;grid-row:1 / span 2;grid-template-columns:48px minmax(0,1fr) 48px;gap:6px}
+  .title-screen .machine-arrow{width:48px;height:48px}
+  .title-screen .machine-preview{height:clamp(56px,28svh,82px)}
+  .title-screen .machine-name{font-size:14px}
+  .title-screen .machine-name,.title-screen .machine-status{overflow-wrap:anywhere}
+  .title-screen .actions{grid-column:1;grid-row:2;gap:6px}
+  .title-screen .actions button{min-height:48px;padding:8px;font-size:14px}
+  .title-screen .setting-toggle{width:48px;height:48px}
+}
+@media(orientation:landscape) and (max-height:540px) and (max-width:400px){
+  .title-screen{grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr);gap:6px 8px;padding-top:42px}
+  .title-screen h1{font-size:18px}
+  .title-bike-mark{top:-24px;left:-48px;width:106px}
+  .title-screen .machine-name{font-size:10px;letter-spacing:0;white-space:nowrap}
+}
 /* Game screens keep the same portrait shell; the renderer owns the entire play area. */
 [hidden]{display:none!important}
 .game-shell.in-game{padding:0;height:100dvh;min-height:0;position:relative;overflow:hidden;background:#bcd8cb}
