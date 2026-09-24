@@ -65,11 +65,15 @@ export class LocalAdapter {
     this.pendingMachineReward = { promise, resolve }; return promise;
   }
   resolveMachineUnlock(earned) { const pending = this.pendingMachineReward; this.pendingMachineReward = null; pending?.resolve(earned === true); }
-  onPause(callback) {
-    const pause = () => callback();
-    const visibility = () => { if (document.hidden) pause(); };
-    window.addEventListener('blur', pause); document.addEventListener('visibilitychange', visibility);
-    window.addEventListener('pagehide', () => this.save(true));
-    return () => { window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility); };
+  onPause(pause, resume) {
+    const focus = () => { if (!document.hidden) resume(); };
+    const visibility = () => { if (document.hidden) pause(); else if (document.hasFocus()) resume(); };
+    const pagehide = () => this.save(true);
+    window.addEventListener('blur', pause); window.addEventListener('focus', focus);
+    document.addEventListener('visibilitychange', visibility); window.addEventListener('pagehide', pagehide);
+    return () => {
+      window.removeEventListener('blur', pause); window.removeEventListener('focus', focus);
+      document.removeEventListener('visibilitychange', visibility); window.removeEventListener('pagehide', pagehide);
+    };
   }
 }

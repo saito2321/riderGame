@@ -253,9 +253,6 @@ export class PlatformAdapter {
       const offResume = this.sdk.system.onResume(resume);
       return () => { offPause?.(); offResume?.(); };
     }
-    const visibility = () => { if (document.hidden) pause(); };
-    window.addEventListener('blur', pause); document.addEventListener('visibilitychange', visibility);
-    window.addEventListener('pagehide', () => this.save(true));
-    return () => { window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility); };
+    return this.local.onPause(pause, resume);
   }
 }
