@@ -28,6 +28,7 @@
   "machine.previous": "Previous machine",
   "machine.next": "Next machine",
   "machine.adOffer": "WATCH AD TO UNLOCK",
+  "machine.adPending": "AD IN PROGRESS",
   "machine.localOffer": "UNLOCK (LOCAL TEST)",
   "machine.adTitle": "UNLOCK MACHINE",
   "machine.adDetail": "Complete the rewarded ad to unlock this machine permanently.",

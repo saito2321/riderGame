@@ -165,3 +165,25 @@ test('rewarded machine unlock needs a true result and survives cloud recovery', 
   await p.save(true);
   assert.deepEqual(writes.at(-1).adUnlockedMachines, ['horse', 'scooter']);
 });
+
+test('one pending rewarded ad cannot satisfy another machine unlock', async () => {
+  let finishAd; const requested = [];
+  const sdk = sdkWith();
+  sdk.ads.requestRewardedAd = id => {
+    requested.push(id);
+    return new Promise(resolve => { finishAd = resolve; });
+  };
+  const p = new PlatformAdapter({ sdk });
+  const first = p.requestMachineUnlock('horse');
+  assert.equal(await p.requestMachineUnlock('robovac'), false);
+  await flush();
+  assert.deepEqual(requested, ['unlock-horse']);
+  finishAd(true);
+  assert.equal(await first, true);
+  assert.equal(p.pendingMachineReward, null);
+  const second = p.requestMachineUnlock('robovac');
+  await flush();
+  assert.deepEqual(requested, ['unlock-horse', 'unlock-robovac']);
+  finishAd(false);
+  assert.equal(await second, false);
+});

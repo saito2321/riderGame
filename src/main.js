@@ -13,7 +13,7 @@ const input=new Input(canvas,()=>sim.x);
 const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
 let strings={},world,machinePreview,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
-let rewardId=0,pendingRewardResult=null,pendingUnlockResult=null,returnFocus=null,seed=randomSeed();
+let rewardId=0,unlockRequestId=0,pendingRewardResult=null,pendingUnlockResult=null,returnFocus=null,seed=randomSeed();
 let machineIndex=0;
 let frameRequest=0,resumeWaiters=[],bootReady=false;
 const t=key=>strings[key]??key;
@@ -26,9 +26,10 @@ function element(tag,text,className){const e=document.createElement(tag);e.textC
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
 function renderMachineSelector(){
   const machine=MACHINES[machineIndex],unlocked=isMachineUnlocked(machine.id,save.bestScore,save.adUnlockedMachines);
+  const adPending=platform.isPlayables&&!!platform.pendingMachineReward;
   $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-name').textContent=t(machine.nameKey);machinePreview?.setMachine(machine.id,!unlocked);
   $('#machine-status').textContent=unlocked?t('machine.selected'):`${t('machine.unlockAt')} ${number(machine.unlockScore)}`;
-  $('#unlock-machine').hidden=unlocked;$('#unlock-machine').textContent=t(platform.isPlayables?'machine.adOffer':'machine.localOffer');
+  $('#unlock-machine').hidden=unlocked;$('#unlock-machine').disabled=adPending;$('#unlock-machine').textContent=t(adPending?'machine.adPending':platform.isPlayables?'machine.adOffer':'machine.localOffer');
   $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;$('#play').disabled=!unlocked;$('#play').textContent=t(unlocked?'ui.play':'machine.locked');
 }
 function browseMachine(direction){
@@ -95,6 +96,7 @@ function platformResume(){
   platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;machinePreview?.setActive(state==='title');platform.setPaused(userPaused);
   const waiters=resumeWaiters;resumeWaiters=[];for(const resolve of waiters)resolve();
   if(!bootReady)return;
+  if(state==='title')renderMachineSelector();
   if(userPaused){setActive();return;}
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
   if(pendingUnlockResult){const result=pendingUnlockResult;pendingUnlockResult=null;finishMachineUnlock(result.id,result.earned);}
@@ -114,19 +116,30 @@ function finishReward(earned){
   else{state='result';renderPanel();}
 }
 async function requestMachineUnlock(){
-  if(state!=='title'||platformPaused)return;
+  if(state!=='title'||platformPaused||platform.pendingMachineReward)return;
   const machine=MACHINES[machineIndex];
   if(isMachineUnlocked(machine.id,save.bestScore,save.adUnlockedMachines))return;
+  const token=++unlockRequestId;
   state='unlocking';machinePreview?.setActive(false);$('#unlock-feedback').hidden=true;
-  openModal('machine.adTitle');$('#modal-action').hidden=true;$('#close-modal').hidden=true;
+  openModal('machine.adTitle');$('#modal-action').hidden=true;
   $('#modal-content').append(element('p',t(platform.isPlayables?'machine.adDetail':'machine.localDetail'),'modal-copy'));
-  if(!platform.isPlayables){
+  if(platform.isPlayables){
+    $('#modal-content').append(button('revive.cancel',()=>cancelMachineUnlock(),true));
+    $('#modal-content button').focus();
+  }else{
     $('#modal-content').append(button('machine.grant',()=>platform.resolveMachineUnlock(true)),button('revive.cancel',()=>platform.resolveMachineUnlock(false),true));
     $('#modal-content button').focus();
   }
   const earned=await platform.requestMachineUnlock(machine.id);
-  if(state!=='unlocking')return;
+  if(token!==unlockRequestId||state!=='unlocking'){if(!platformPaused&&state==='title')renderMachineSelector();return;}
   if(isPaused())pendingUnlockResult={id:machine.id,earned};else finishMachineUnlock(machine.id,earned);
+}
+function cancelMachineUnlock(closeModal=true){
+  if(state!=='unlocking'||platformPaused)return;
+  unlockRequestId++;pendingUnlockResult=null;state='title';platform.resolveMachineUnlock(false);
+  $('#unlock-feedback').textContent=t('machine.unearned');$('#unlock-feedback').hidden=false;
+  machinePreview?.setActive(true);renderMachineSelector();returnFocus=$('#machine-next');
+  if(closeModal&&modal.open)modal.close();
 }
 function finishMachineUnlock(id,earned){
   if(state!=='unlocking')return;
@@ -230,10 +243,10 @@ async function init(){
   $('#machine-prev').addEventListener('click',()=>browseMachine(-1));$('#machine-next').addEventListener('click',()=>browseMachine(1));
   $('#unlock-machine').addEventListener('click',requestMachineUnlock);
   $('#play').addEventListener('click',()=>startRun());$('#pause-button').addEventListener('click',pause);
-  $('#close-modal').addEventListener('click',()=>modal.close());
+  $('#close-modal').addEventListener('click',()=>{if(state==='unlocking')cancelMachineUnlock();else modal.close();});
   modal.addEventListener('close',()=>{if(state==='tutorial'){goTitle();return;}if(state==='title')returnFocus?.focus();});
   // The close event is asynchronous: tutorial state must change before modal.close().
-  modal.addEventListener('cancel',e=>{if(state==='unlocking')e.preventDefault();else if(state==='tutorial')goTitle();});
+  modal.addEventListener('cancel',()=>{if(state==='unlocking')cancelMachineUnlock(false);else if(state==='tutorial')goTitle();});
   document.addEventListener('keydown',e=>{
     if(platformPaused)return;
     if(e.key==='Tab'&&!overlay.hidden&&overlay.querySelector('.game-panel')){

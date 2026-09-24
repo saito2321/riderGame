@@ -210,7 +210,7 @@ export class PlatformAdapter {
   requestMachineUnlock(id) {
     if (!machineById(id) || id === DEFAULT_MACHINE_ID || isMachineUnlocked(id,this.data.bestScore,this.data.adUnlockedMachines)) return Promise.resolve(false);
     if (this.local) return this.local.requestMachineUnlock();
-    if (this.pendingMachineReward) return this.pendingMachineReward;
+    if (this.pendingMachineReward) return Promise.resolve(false);
     const wait = this.pendingAd ?? Promise.resolve();
     const request = wait.catch(() => {}).then(() => this.sdk.ads.requestRewardedAd(`unlock-${id}`)).then(value => value === true).catch(() => false).finally(() => {
       this.pendingMachineReward = null;
