@@ -15,7 +15,7 @@ let strings={},world,machinePreview,state='title',userPaused=false,platformPause
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
 let rewardId=0,pendingRewardResult=null,pendingUnlockResult=null,returnFocus=null,seed=randomSeed();
 let machineIndex=0;
-let frameRequest=0,resumeWaiters=[];
+let frameRequest=0,resumeWaiters=[],bootReady=false;
 const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString('en-US');
 const isPaused=()=>userPaused||platformPaused;
@@ -86,12 +86,15 @@ function resume(){
 }
 function platformPause(){
   if(platformPaused)return;
-  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio.pause();machinePreview?.setActive(false);saveNow();platform.setPaused(true);accumulator=0;previousTime=0;stopFrame();
+  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio?.pause();machinePreview?.setActive(false);
+  if(bootReady)saveNow();else platform.save(true);
+  platform.setPaused(true);accumulator=0;previousTime=0;stopFrame();
 }
 function platformResume(){
   if(!platformPaused)return;
   platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;machinePreview?.setActive(state==='title');platform.setPaused(userPaused);
   const waiters=resumeWaiters;resumeWaiters=[];for(const resolve of waiters)resolve();
+  if(!bootReady)return;
   if(userPaused){setActive();return;}
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
   if(pendingUnlockResult){const result=pendingUnlockResult;pendingUnlockResult=null;finishMachineUnlock(result.id,result.earned);}
@@ -211,8 +214,11 @@ function frame(timestamp){
   updateHUD();world.render(sim,save.settings,dt);
 }
 async function init(){
+  platform.onPause(platformPause,platformResume);
   await nextFrame();await nextFrame();platform.firstFrameReady();
+  await waitForPlatformResume();
   const [response,loadedSave]=await Promise.all([fetch('./locales/en.json'),platform.load()]);if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
+  await waitForPlatformResume();
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
   machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;hapticsToggle.checked=save.settings.haptics;$('#close-modal').ariaLabel=t('ui.close');
@@ -240,13 +246,13 @@ async function init(){
   });
   canvas.addEventListener('renderer-lost',()=>{pause();saveNow();openError('error.context','error.contextDetail');});
   platform.onAudioEnabledChange(enabled=>{audio.setSystemEnabled(enabled);if(enabled&&state==='playing'&&!isPaused())audio.unlock();});
-  platform.onPause(platformPause,platformResume);
   let Preview;
   try{({MachinePreview:Preview}=await import('./game/MachinePreview.js'));}catch(error){console.error(error);}
+  await waitForPlatformResume();
   const title=$('.title-screen');title.hidden=false;$('#loading-screen').hidden=true;
   if(Preview){try{machinePreview=new Preview($('#machine-preview-canvas'));renderMachineSelector();machinePreview.setActive(!platformPaused);}catch(error){console.error(error);}}
   await nextFrame();await nextFrame();
   await waitForPlatformResume();
-  title.inert=false;platform.gameReady();scheduleFrame();
+  title.inert=false;bootReady=true;platform.gameReady();scheduleFrame();
 }
 init().catch(error=>{console.error(error);$('#load-error').hidden=false;});
