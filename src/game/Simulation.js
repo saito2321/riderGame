@@ -1,5 +1,6 @@
+import { CoinSystem } from './CoinSystem.js';
 import { updateBikeBank } from './BikeBank.js';
-import { CONFIG as C, VEHICLES, steer, moveToward, multiplier, warningSeconds, nearPoints, smoothstep, randomGenerator } from './config.js';
+import { CONFIG as C, VEHICLES, TRAFFIC_BIKE, steer, moveToward, multiplier, warningSeconds, signalEvery, nearPoints, smoothstep, randomGenerator } from './config.js';
 
 // Continuous intersection of a line segment and a 1D interval, in frame fractions.
 export function interval(a, b, min, max) {
@@ -18,41 +19,50 @@ export class Simulation {
     this.x = 0; this.bank = 0; this.bankLateralSpeed = 0; this.time = 0; this.distance = 0; this.score = 0; this.health = C.health;
     this.combo = 0; this.bestCombo = 0; this.nearMisses = 0; this.lastNear = -Infinity;
     this.baseSpeed = C.baseSpeed; this.speed = C.baseSpeed; this.turbo = 0;
+    this.jumpTime = 0; this.jumpDuration = 0; this.jumpVehicleId = null;
     this.turboRate = 0; this.turboRiseRate = 2; this.invincible = 0; this.crashRecovery = 0; this.hitStop = 0;
     this.dead = false; this.revived = false; this.spawnTravel = 0; this.laneTimer = 0; this.brakeTimer = 0;
-    this.events = []; this.speedLevel = 0;
+    this.gapSide = 0; this.gapPassCount = 0; this.gapRetry = 0;
+    if(this.coins)this.coins.reset(seed);else this.coins=new CoinSystem(seed);
+    this.events = []; this.speedLevel = 0; this.unsignaledTraffic = 3;
     for (const v of this.vehicles) v.active = false;
     this.spawnVehicle('car', -3.5, -60);
     this.spawnVehicle('car', 3.5, -92);
-    this.spawnVehicle('car', 0, -124);
+    const openingRamp = this.spawnVehicle('rampTruck', 0, -55);
+    openingRamp.trafficSpeed = 4; openingRamp.cruiseSpeed = 4;
+    this.coins.placeStartingCoins();
   }
   spawnVehicle(type, x, z) {
     const v = this.vehicles.find(v => !v.active);
     if (!v) return null;
-    Object.assign(v, VEHICLES[type], { type, id: this.nextId++, active: true, x, z, oldX: x, oldZ: z,
-      nearStarted: false, disqualified: false, scored: false, minGap: Infinity, side: 0,
-      change: 'straight', changeUsed: false, changeTime: 0, warning: 0, direction: 0, fromX: x, toX: x,
-      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed });
+    Object.assign(v, type === 'bike' ? TRAFFIC_BIKE : VEHICLES[type], { type, id: this.nextId++, active: true, x, z, oldX: x, oldZ: z,
+      gapPassSide: 0, nearStarted: false, disqualified: false, scored: false, minGap: Infinity, side: 0,
+      change: 'straight', plannedDirection: 0, changeUsed: false, changeTime: 0, warning: 0, direction: 0, fromX: x, toX: x,
+      braking: false, brakeUsed: false, brakeTime: 0, trafficSpeed: C.vehicleSpeed, cruiseSpeed: C.vehicleSpeed, rampUsed: false });
     return v;
   }
   breakCombo(immediate = false) { this.combo = 0; this.turboRate = this.turbo; if (immediate) this.turbo = 0; }
   safeZone() {
+    this.coins.clear();
     // Remove nearby hazards instead of teleporting them across the player's path.
     for (const v of this.vehicles) if (v.active && (v.z > -110 || v.change !== 'straight')) v.active = false;
-    this.spawnTravel = 0;
+    this.spawnTravel = 0; this.gapSide = 0; this.gapPassCount = 0; this.gapRetry = 0;
   }
   revive() {
     if (!this.dead || this.revived) return false;
     this.revived = true; this.bank = 0; this.bankLateralSpeed = 0; this.dead = false; this.health = 1; this.hitStop = 0;
-    this.invincible = C.reviveInvincible; this.crashRecovery = 0; this.breakCombo(true); this.safeZone(); return true;
+    this.invincible = C.reviveInvincible; this.crashRecovery = 0; this.jumpTime = 0; this.jumpDuration = 0; this.jumpVehicleId = null; this.breakCombo(true); this.safeZone(); return true;
   }
-  // Reserve the full swept width of lane changes. Verify an actual smoothed steering
-  // trajectory after 1s reaction, against the full envelope of relative speeds.
+  // Verify a smoothed steering trajectory after 1s reaction. Single-lane
+  // changes use the full relative-speed envelope. Two-lane changes follow the
+  // timed car trajectory at the current speed so their full-road sweep does
+  // not block every possible path for the entire approach.
   // Conservative acceptance can reject a playable wave; rejection means less traffic.
   hasSafePath(extra = []) {
     const obstacles = [...this.vehicles.filter(v => v.active), ...extra];
-    const minClosingSpeed = C.baseSpeed * .8 - C.vehicleSpeed;
-    const maxClosingSpeed = C.maxSpeed - C.brakingSpeed;
+    const minClosingSpeed = this.baseSpeed * .8 - C.vehicleSpeed;
+    const slowestTraffic = Math.min(C.brakingSpeed, ...obstacles.map(v => v.cruiseSpeed ?? C.vehicleSpeed));
+    const maxClosingSpeed = Math.min(C.maxSpeed, this.speed + C.maxTurbo + 2 * C.speedIncrement) - slowestTraffic;
     const horizon = Math.max(6, ...obstacles.map(v => (-v.z + (v.length + C.bikeLength) / 2) / minClosingSpeed));
     for (const target of [-C.edge, -3.5, -1.75, 0, 1.75, 3.5, C.edge]) {
       let x = this.x, safe = true;
@@ -60,10 +70,23 @@ export class Simulation {
         const oldX = x; if (t > 1) x = steer(x, target, .05);
         for (const v of obstacles) {
           const halfZ = (v.length + C.bikeLength) / 2;
-          if (v.z + maxClosingSpeed * t < -halfZ || v.z + minClosingSpeed * (t - .05) > halfZ) continue;
+          const twoLane = v.change !== 'straight' && Math.abs(v.toX - v.x) > C.laneWidth + 1e-9;
+          if (twoLane) {
+            const closing = Math.max(1, this.speed - (v.trafficSpeed ?? C.vehicleSpeed));
+            if (v.z + closing * t < -halfZ || v.z + closing * (t - .05) > halfZ) continue;
+          } else if (v.z + maxClosingSpeed * t < -halfZ || v.z + minClosingSpeed * (t - .05) > halfZ) continue;
           const halfX = (v.width + C.bikeWidth) / 2 + .15;
-          const min = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x) - halfX;
-          const max = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x) + halfX;
+          let min = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x) - halfX;
+          let max = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x) + halfX;
+          if (twoLane) {
+            const closing = Math.max(1, this.speed - (v.trafficSpeed ?? C.vehicleSpeed));
+            const signalAt = v.change === 'queued' ? Math.max(0, ((v.signalZ ?? -105) - v.z) / closing) : 0;
+            const warningLeft = v.change === 'queued' ? v.plannedWarning ?? warningSeconds(this.score) : v.change === 'signaling' ? Math.max(0, v.warning - v.changeTime) : 0;
+            const progress = v.change === 'changing' ? (v.changeTime + t) / 2 : (t - signalAt - warningLeft) / 2;
+            const origin = v.fromX ?? v.x;
+            const position = origin + (v.toX - origin) * smoothstep(progress);
+            min = position - halfX; max = position + halfX;
+          }
           if (Math.max(oldX, x) >= min && Math.min(oldX, x) <= max) { safe = false; break; }
         }
       }
@@ -71,49 +94,129 @@ export class Simulation {
     }
     return false;
   }
+  syncGapPosition() {
+    const side = Math.abs(Math.abs(this.x) - C.laneWidth / 2) <= C.gapHalfWidth ? Math.sign(this.x) : 0;
+    if (!side || side !== this.gapSide) {
+      this.gapSide = side; this.resetGapPasses();
+    }
+  }
+  resetGapPasses() {
+    this.gapPassCount = 0; this.gapRetry = 0;
+    for (const v of this.vehicles) v.gapPassSide = 0;
+  }
+  updateGapTraffic(dt) {
+    if (this.dead || this.hitStop > 0 || dt <= 0) return;
+    this.syncGapPosition();
+    const side = this.gapSide;
+    if (!side) return;
+    this.gapRetry = Math.max(0, this.gapRetry - dt);
+    if (this.gapPassCount < C.gapPassThreshold || this.gapRetry > 0) return;
+    this.gapRetry = .25;
+    // Keep one approaching motorcycle per gap, and reuse the normal traffic pool.
+    if (!this.vehicles.some(v => !v.active) || this.vehicles.some(v => v.active && v.type === 'bike' && v.z < 0 && Math.sign(v.x) === side)) return;
+    const z = -Math.max(C.gapSpawnDistance, (this.speed - C.vehicleSpeed) * C.gapReactionSeconds);
+    const candidate = { ...TRAFFIC_BIKE, type: 'bike', x: this.x, z, change: 'straight' };
+    for (const v of this.vehicles) {
+      if (!v.active) continue;
+      const minX = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x);
+      const maxX = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x);
+      const halfX = (v.width + candidate.width) / 2 + .2;
+      if (Math.abs(v.z - z) < (v.length + candidate.length) / 2 + (v.change !== 'straight' ? 14 : 8) && candidate.x >= minX - halfX && candidate.x <= maxX + halfX) return;
+    }
+    if (!this.hasSafePath([candidate])) return;
+    this.spawnVehicle('bike', candidate.x, z); this.gapPassCount = 0;
+  }
+  laneChangeTiming() {
+    const warning = warningSeconds(this.score);
+    const signalDistance = Math.max(105, this.laneChangeClearance(warning + 2) + C.maxSpeed * C.step + 1);
+    return { warning, signalZ: -signalDistance, spawnZ: -Math.max(155, signalDistance + 20) };
+  }
+  laneChangeClearance(seconds) {
+    const closingSpeed = Math.max(1, Math.min(C.maxSpeed, this.baseSpeed + C.maxTurbo) - C.vehicleSpeed);
+    const halfLength = (VEHICLES.car.length + C.bikeLength) / 2;
+    // Leave room for base-speed acceleration, an immediate full turbo boost,
+    // the whole lane-change animation, and clearance before collider overlap.
+    return closingSpeed * seconds + C.baseAcceleration * seconds * seconds / 2 + halfLength + 20;
+  }
   spawnWave() {
     const lanes = [-3.5, 0, 3.5], first = Math.floor(this.random() * 3);
     const count = this.distance >= 1000 && this.random() < .55 ? 2 : 1;
-    const candidates = [];
     for (let i = 0; i < count; i++) {
+      const due = this.unsignaledTraffic >= signalEvery(this.score) - 1;
+      const timing = due ? this.laneChangeTiming() : null;
+      const spawnZ = timing?.spawnZ ?? C.spawnZ;
       const r = this.random();
-      const type = this.distance >= 3000 && r < .18 ? 'bus' : this.distance >= 1000 && r < .4 ? 'truck' : 'car';
-      candidates.push({ ...VEHICLES[type], type, x: lanes[(first + i) % 3], z: C.spawnZ, change: 'straight' });
+      const twoLaneChange = due && this.score > 10000 && r < .5;
+      const type = due ? 'car' : this.distance >= 300 && r < .15 ? 'rampTruck' : this.distance >= 3000 && r < .18 ? 'bus' : this.distance >= 1000 && r < .4 ? 'truck' : 'car';
+      let spawned = false;
+      for (let option = 0; option < (due ? 3 : 1); option++) {
+        const x = lanes[(first + i + option) % 3];
+        const candidate = { ...VEHICLES[type], type, x, z: spawnZ, change: 'straight' };
+        const offsets = due ? [...(twoLaneChange && x !== 0 ? [-Math.sign(x) * 2] : []), ...(x > 0 ? [-1, 1] : [1, -1])] : [0];
+        for (const offset of offsets) {
+          const toX = x + offset * C.laneWidth;
+          if (Math.abs(toX) > C.laneWidth) continue;
+          if (due) {
+            candidate.change = 'queued'; candidate.toX = toX; candidate.signalZ = timing.signalZ; candidate.plannedWarning = timing.warning;
+            const horizon = 20 / Math.max(1, this.speed - C.vehicleSpeed) + timing.warning + 2;
+            if (!this.changeTrafficIsClear(candidate, toX, horizon)) continue;
+          }
+          const occupiesReservation = this.vehicles.some(other => other.active && other.change !== 'straight' &&
+            Math.abs(other.z - candidate.z) < (other.length + candidate.length) / 2 + 14 &&
+            candidate.x >= Math.min(other.x, other.toX) - (other.width + candidate.width) / 2 &&
+            candidate.x <= Math.max(other.x, other.toX) + (other.width + candidate.width) / 2);
+          if (occupiesReservation || !this.hasSafePath([candidate])) continue;
+          const v = this.spawnVehicle(type, x, spawnZ);
+          if (!v) return;
+          if (due) {
+            Object.assign(v, {change:'queued', fromX:x, toX, plannedDirection:Math.sign(offset), signalZ:timing.signalZ, plannedWarning:timing.warning});
+            this.unsignaledTraffic = 0;
+          } else this.unsignaledTraffic++;
+          spawned = true; break;
+        }
+        if (spawned) break;
+      }
+      // Do not replace a required signaling car with ordinary traffic. Retry the
+      // reserved maneuver on the next wave once there is space for it.
+      if (!spawned) return;
     }
-    while (candidates.length && !this.hasSafePath(candidates)) candidates.pop();
-    for (const v of candidates) this.spawnVehicle(v.type, v.x, v.z);
   }
-  changeIsSafe(car, toX) {
+  changeTrafficIsClear(car, toX, horizon = 0) {
     const minX = Math.min(car.x, toX), maxX = Math.max(car.x, toX);
     for (const v of this.vehicles) {
       if (!v.active || v === car) continue;
-      if (Math.abs(v.z - car.z) < (v.length + car.length) / 2 + 14 && v.x >= minX - 2.5 && v.x <= maxX + 2.5) return false;
-      if (v.z > car.z && v.z < 0 && Math.abs(v.x - car.x) < 2.5) return false;
+      // Reserve enough longitudinal space for braking during the entire maneuver.
+      const differential = v.braking || car.braking || (v.trafficSpeed ?? C.vehicleSpeed) < C.vehicleSpeed || (car.trafficSpeed ?? C.vehicleSpeed) < C.vehicleSpeed ? C.vehicleSpeed - C.brakingSpeed : 0;
+      const gap = (v.length + car.length) / 2 + 14 + differential * horizon;
+      const otherMin = Math.min(v.x, v.change !== 'straight' ? v.toX : v.x);
+      const otherMax = Math.max(v.x, v.change !== 'straight' ? v.toX : v.x);
+      const halfX = (v.width + car.width) / 2 + .2;
+      if (Math.abs(v.z - car.z) < gap && otherMax >= minX - halfX && otherMin <= maxX + halfX) return false;
     }
+    return true;
+  }
+  changeIsSafe(car, toX) {
+    if (car.type === 'rampTruck') return false;
+    if (!this.changeTrafficIsClear(car, toX, warningSeconds(this.score) + 2)) return false;
     const prior = { change: car.change, toX: car.toX };
     car.change = 'signaling'; car.toX = toX;
     const safe = this.hasSafePath(); Object.assign(car, prior); return safe;
   }
   scheduleChange(dt) {
-    if (this.score < 500) return;
-    this.laneTimer += dt; if (this.laneTimer < 4) return; this.laneTimer = 0;
-    if (this.vehicles.some(v => v.active && v.change !== 'straight') || this.random() >= .35) return;
-    const candidates = this.vehicles.filter(v => v.active && v.type === 'car' && !v.changeUsed && v.z < -48 && v.z > -105).sort((a,b) => a.id-b.id);
-    for (const v of candidates) {
-      const dirs = this.random() < .5 ? [-1, 1] : [1, -1];
-      for (const dir of dirs) {
-        const toX = v.x + dir * C.laneWidth;
-        if (Math.abs(toX) > 3.51 || !this.changeIsSafe(v, toX)) continue;
-        v.change = 'signaling'; v.changeUsed = true; v.warning = warningSeconds(this.score);
-        v.changeTime = 0; v.direction = dir; v.fromX = v.x; v.toX = toX; return;
-      }
+    // A lane corridor is reserved at spawn. If speed changes make the planned
+    // timing too late, keep the car straight instead of crossing near the bike.
+    for (const v of this.vehicles) {
+      if (!v.active || v.type === 'rampTruck' || v.change !== 'queued' || v.z < (v.signalZ ?? -105)) continue;
+      if (v.z > -this.laneChangeClearance((v.plannedWarning ?? warningSeconds(this.score)) + 2)) { v.change = 'straight'; v.changeUsed = true; continue; }
+      v.change = 'signaling'; v.changeUsed = true; v.warning = v.plannedWarning ?? warningSeconds(this.score);
+      v.changeTime = 0; v.direction = v.plannedDirection;
     }
   }
   scheduleBrake(dt) {
-    if (this.score < C.brakeStartScore) return;
+    if (this.score < C.brakeStartScore || this.vehicles.some(v => v.active && v.change !== 'straight')) return;
     this.brakeTimer += dt; if (this.brakeTimer < C.brakeInterval) return; this.brakeTimer = 0;
     if (this.random() >= C.brakeChance) return;
-    const candidates = this.vehicles.filter(v => v.active && !v.brakeUsed && v.change === 'straight' && v.z < -30 && v.z > -105);
+    const candidates = this.vehicles.filter(v => v.active && v.type !== 'bike' && v.type !== 'rampTruck' && !v.brakeUsed && v.change === 'straight' && v.z < -30 && v.z > -105);
     if (!candidates.length) return;
     const v = candidates[Math.floor(this.random() * candidates.length)];
     v.braking = true; v.brakeUsed = true; v.brakeTime = C.brakeDuration;
@@ -123,7 +226,9 @@ export class Simulation {
     if (v.change !== 'straight') {
       v.changeTime += dt;
       if (v.change === 'signaling' && v.changeTime >= v.warning) {
-        if (!this.changeIsSafe(v, v.toX)) { v.change = 'straight'; v.direction = 0; }
+        // The player already received the full warning. Restarting the reaction-time
+        // path check here incorrectly cancels announced changes as the car approaches.
+        if (!this.changeTrafficIsClear(v, v.toX, 2) || v.z > -this.laneChangeClearance(2)) { v.change = 'straight'; v.direction = 0; }
         else { v.change = 'changing'; v.changeTime -= v.warning; }
       }
       if (v.change === 'changing') {
@@ -135,7 +240,7 @@ export class Simulation {
       v.brakeTime = Math.max(0, v.brakeTime - dt);
       v.trafficSpeed = moveToward(v.trafficSpeed, C.brakingSpeed, C.brakeDeceleration * dt);
       if (v.brakeTime === 0) v.braking = false;
-    } else v.trafficSpeed = moveToward(v.trafficSpeed, C.vehicleSpeed, C.vehicleAcceleration * dt);
+    } else v.trafficSpeed = moveToward(v.trafficSpeed, v.cruiseSpeed, C.vehicleAcceleration * dt);
     v.z += (this.speed - v.trafficSpeed) * dt;
   }
   step(dt, input = { target: this.x, axis: 0 }) {
@@ -145,12 +250,13 @@ export class Simulation {
     const startTime = this.time; this.time += dt;
     this.invincible = Math.max(0, this.invincible - dt);
     this.crashRecovery = Math.max(0, this.crashRecovery - dt);
+    this.jumpTime = Math.max(0, this.jumpTime - dt);
     const turboTarget = Math.min(this.combo * .4, C.maxTurbo);
-    this.turbo = moveToward(this.turbo, turboTarget, (turboTarget > this.turbo ? this.turboRiseRate : this.turboRate) * dt);
-    const level = Math.min(28, Math.floor(this.distance / C.distanceStep));
+    this.turbo = moveToward(this.turbo, turboTarget, (turboTarget > this.turbo ? this.turboRiseRate : this.combo ? C.boostDecay : Math.max(this.turboRate, C.boostDecay)) * dt);
+    const level = Math.min((C.maxBaseSpeed - C.baseSpeed) / C.speedIncrement, Math.floor(this.distance / C.distanceStep));
     if (level > this.speedLevel) { this.events.push({ type: 'speed' }); this.speedLevel = level; }
-    this.baseSpeed = moveToward(this.baseSpeed, C.baseSpeed + level * .5, dt);
-    this.speed = Math.min(C.maxSpeed, this.baseSpeed + this.turbo) * (1 - .2 * this.crashRecovery / 1.5);
+    this.baseSpeed = moveToward(this.baseSpeed, C.baseSpeed + level * C.speedIncrement, C.baseAcceleration * dt);
+    this.speed = Math.max(C.minSpeed, Math.min(C.maxSpeed, this.baseSpeed + this.turbo) * (1 - .2 * this.crashRecovery / 1.5));
     const traveled = this.speed * dt;
     this.distance += traveled; this.score = Math.min(Number.MAX_SAFE_INTEGER, this.score + traveled);
     const oldX = this.x;
@@ -159,6 +265,7 @@ export class Simulation {
     this.bank = updateBikeBank(this.bank, lateralSpeed, dt, this.bankLateralSpeed);
     this.bankLateralSpeed = lateralSpeed;
     if (input.axis) input.target = this.x;
+    this.syncGapPosition();
     this.scheduleChange(dt);
     this.scheduleBrake(dt);
     const contacts = [];
@@ -168,24 +275,47 @@ export class Simulation {
       const halfZ = (v.length + C.bikeLength) / 2, halfX = (v.width + C.bikeWidth) / 2;
       const overlap = interval(v.oldZ, v.z, -halfZ, halfZ);
       if (overlap) {
+        // Count a complete pass of either adjacent lane, independently of Near Miss.
+        const adjacent = Math.abs(this.x - v.x) <= C.laneWidth / 2 + C.gapHalfWidth;
+        if (v.type !== 'bike' && this.gapSide && adjacent && v.oldZ <= -halfZ) v.gapPassSide = this.gapSide;
+        if (!adjacent) v.gapPassSide = 0;
         const rel0 = oldX - v.oldX, rel1 = this.x - v.x;
         const contact = interval(rel0, rel1, -halfX, halfX);
         if (contact && Math.max(contact[0], overlap[0]) <= Math.min(contact[1], overlap[1])) {
-          v.disqualified = true; contacts.push({ type: 'hit', v, at: Math.max(contact[0], overlap[0]) });
+          const at = Math.max(contact[0], overlap[0]);
+          const entryX = rel0 + (rel1 - rel0) * overlap[0];
+          const rampEntry = v.type === 'rampTruck' && !v.rampUsed && v.oldZ <= -halfZ &&
+            Math.abs(at - overlap[0]) < 1e-9 && Math.abs(entryX) <= C.rampHalfWidth;
+          v.gapPassSide = 0; v.disqualified = true;
+          if (rampEntry) contacts.push({ type: 'jump', v, at });
+          else if (!(v.type === 'rampTruck' && v.rampUsed && this.jumpVehicleId === v.id)) contacts.push({ type: 'hit', v, at });
         }
         const r0 = rel0 + (rel1 - rel0) * overlap[0], r1 = rel0 + (rel1 - rel0) * overlap[1];
         if (!v.nearStarted) { v.nearStarted = true; v.side = Math.sign(r0); if (v.oldZ > -halfZ + 1e-6) v.disqualified = true; }
         const gap0 = Math.abs(r0) - halfX, gap1 = Math.abs(r1) - halfX;
-        if (Math.sign(r0) !== v.side || Math.sign(r1) !== v.side || Math.min(gap0,gap1) <= 0 || Math.max(gap0,gap1) > .6 + 1e-9) v.disqualified = true;
+        if (Math.sign(r0) !== v.side || Math.sign(r1) !== v.side || Math.min(gap0,gap1) <= 0 || Math.max(gap0,gap1) > C.nearMissGap + 1e-9) v.disqualified = true;
         v.minGap = Math.min(v.minGap, gap0, gap1);
+      }
+      if (v.oldZ <= halfZ && v.z > halfZ && v.gapPassSide && v.gapPassSide === this.gapSide) {
+        this.gapPassCount = Math.min(C.gapPassThreshold, this.gapPassCount + 1); v.gapPassSide = 0;
       }
       if (v.oldZ <= halfZ && v.z > halfZ && v.nearStarted && !v.disqualified && !v.scored) contacts.push({ type: 'near', v, at: (halfZ - v.oldZ) / (v.z - v.oldZ), points: nearPoints(v.minGap) });
       if (v.z > 24) v.active = false;
     }
-    contacts.sort((a,b) => a.at - b.at || (a.type === b.type ? (a.points || 0) - (b.points || 0) || a.v.id-b.v.id : a.type === 'hit' ? -1 : 1));
+    const priority = { hit: 0, jump: 1, near: 2 };
+    contacts.sort((a,b) => a.at - b.at || priority[a.type] - priority[b.type] || (a.points || 0) - (b.points || 0) || a.v.id - b.v.id);
     for (const event of contacts) {
       if (this.dead || !event.v.active) continue;
-      if (event.type === 'hit') {
+      if (event.type === 'jump') {
+        event.v.rampUsed = true; this.jumpVehicleId = event.v.id;
+        const closingSpeed = Math.max(1, this.speed - event.v.trafficSpeed);
+        this.jumpDuration = Math.max(2, (event.v.length + C.bikeLength + VEHICLES.car.length) / closingSpeed + .35);
+        this.jumpTime = this.jumpDuration;
+        this.score = Math.min(Number.MAX_SAFE_INTEGER, this.score + 500);
+        this.events.push({ type: 'jump', points: 500 });
+      } else if (event.type === 'hit') {
+        this.resetGapPasses();
+        if (this.jumpTime > 0) continue;
         if (this.invincible > 0) continue;
         this.health--; this.breakCombo(); this.invincible = C.invincible; this.crashRecovery = 1.5; this.hitStop = .15;
         this.events.push({ type: 'hit', health: this.health });
@@ -197,6 +327,7 @@ export class Simulation {
         const at = startTime + event.at * dt;
         if (at - this.lastNear > C.comboTime + 1e-9) this.combo = 0;
         event.v.scored = true; this.combo++; this.lastNear = at;
+        if (event.points === 300) this.turbo = Math.min(C.maxTurbo, this.turbo + C.veryCloseBoost);
         this.turboRiseRate = Math.max(0, Math.min(this.combo * .4, C.maxTurbo) - this.turbo) / .2;
         this.bestCombo = Math.max(this.bestCombo, this.combo); this.nearMisses++;
         const points = event.points * multiplier(this.combo);
@@ -206,7 +337,26 @@ export class Simulation {
     }
     if (this.combo && this.time - this.lastNear > C.comboTime + 1e-9) this.breakCombo();
     this.spawnTravel += (this.speed - C.vehicleSpeed) * dt;
-    const spacing = this.distance < 1000 ? 28 : this.distance < 3000 ? 36 : 44;
-    if (this.spawnTravel >= spacing && !this.dead) { this.spawnTravel = 0; this.spawnWave(); }
+    const spacing = (this.distance < 1000 ? 28 : this.distance < 3000 ? 36 : 44) / C.trafficDensity;
+    if (this.spawnTravel >= spacing && !this.dead) { this.spawnTravel -= spacing; this.spawnWave(); }
+    this.updateGapTraffic(dt);
+    if(!this.dead&&this.hitStop<=0)this.coins.update(this,dt,oldX);
+  }
+  advanceCrash(dt) {
+    if (!this.dead || dt <= 0) return;
+    this.events.length = 0;
+    const traveled = this.speed * dt;
+    this.time += dt;
+    this.distance += traveled;
+    for (const v of this.vehicles) {
+      if (!v.active) continue;
+      v.z += (this.speed - v.trafficSpeed) * dt;
+      if (v.z > 24) v.active = false;
+    }
+    for (const coin of this.coins.items) {
+      if (!coin.active) continue;
+      coin.z += traveled;
+      if (coin.z > 8) coin.active = false;
+    }
   }
 }
