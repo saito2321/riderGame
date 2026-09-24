@@ -15,6 +15,32 @@ const sdkWith = ({ loadData = async () => '', saveData = async () => {}, sendSco
   ads: {}, system: {},
 });
 
+test('local browser resumes after focus returns but stays paused while hidden', () => {
+  const priorWindow = globalThis.window, priorDocument = globalThis.document;
+  const browserWindow = new EventTarget(), browserDocument = new EventTarget();
+  let focused = false, pauses = 0, resumes = 0;
+  browserDocument.hidden = false;
+  browserDocument.hasFocus = () => focused;
+  globalThis.window = browserWindow; globalThis.document = browserDocument;
+  try {
+    const platform = new PlatformAdapter({ sdk: { IN_PLAYABLES_ENV: false }, storage: { getItem: () => null } });
+    const unsubscribe = platform.onPause(() => pauses++, () => resumes++);
+    browserWindow.dispatchEvent(new Event('blur'));
+    browserDocument.hidden = true; browserDocument.dispatchEvent(new Event('visibilitychange'));
+    browserWindow.dispatchEvent(new Event('focus'));
+    assert.equal(pauses, 2); assert.equal(resumes, 0);
+    browserDocument.hidden = false; browserDocument.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(resumes, 0);
+    focused = true; browserWindow.dispatchEvent(new Event('focus'));
+    assert.equal(resumes, 1);
+    unsubscribe(); browserWindow.dispatchEvent(new Event('blur'));
+    assert.equal(pauses, 2);
+  } finally {
+    if (priorWindow === undefined) delete globalThis.window; else globalThis.window = priorWindow;
+    if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
+  }
+});
+
 test('YouTube language selects Japanese only for ja locale tags and falls back to English', async () => {
   const sdk = sdkWith();
   const platform = new PlatformAdapter({ sdk });

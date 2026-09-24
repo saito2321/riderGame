@@ -87,6 +87,7 @@ function resume(){
 }
 function platformPause(){
   if(platformPaused)return;
+  if(!platform.isPlayables&&!userPaused&&['playing','countdown'].includes(state)){userPaused=true;pauseConfirming=false;}
   platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio?.pause();machinePreview?.setActive(false);
   if(bootReady)saveNow();else platform.save(true);
   platform.setPaused(true);accumulator=0;previousTime=0;stopFrame();
@@ -97,7 +98,7 @@ function platformResume(){
   const waiters=resumeWaiters;resumeWaiters=[];for(const resolve of waiters)resolve();
   if(!bootReady)return;
   if(state==='title')renderMachineSelector();
-  if(userPaused){setActive();return;}
+  if(userPaused){setActive();renderPanel();return;}
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
   if(pendingUnlockResult){const result=pendingUnlockResult;pendingUnlockResult=null;finishMachineUnlock(result.id,result.earned);}
   if(['playing','countdown'].includes(state))audio.unlock();

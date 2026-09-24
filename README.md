@@ -45,7 +45,7 @@ http://localhost:5173 を開いてください。起動時は読み込み画面�
 |---|---|---|
 | セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v1` |
 | ベストスコア | `ytgame.engagement.sendScore` | LocalStorageへ保存 |
-| Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止と明示的なRESUME |
+| Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止。復帰時にタイトルは自動再開、走行中は明示的なRESUME |
 | 復活 | `requestRewardedAd('revive-one-health')` | REVIVE (LOCAL) → GRANT REVIVE / CANCEL |
 | マシン開放 | `requestRewardedAd('unlock-<machine-id>')` | UNLOCK (LOCAL TEST) → GRANT UNLOCK / CANCEL |
 | インタースティシャル広告 | ゲームオーバー後に `requestInterstitialAd()` | 呼び出さない |
