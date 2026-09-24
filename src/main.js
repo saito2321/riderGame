@@ -8,7 +8,7 @@ import { MACHINES, isMachineUnlocked } from './machines.js';
 const $=s=>document.querySelector(s);
 const platform=new PlatformAdapter(),sim=new Simulation();
 let save=platform.data,audio;
-const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal'),soundToggle=$('#sound-toggle');
+const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal'),soundToggle=$('#sound-toggle'),hapticsToggle=$('#haptics-toggle');
 const input=new Input(canvas,()=>sim.x);
 let strings={},world,machinePreview,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
@@ -162,7 +162,7 @@ function frame(timestamp){
         if(event.type==='near'){showToast(`${t(event.tier===300?'hud.veryClose':'hud.near')} +${event.points}`);audio.effect('near');}
         if(event.type==='jump'){showToast(`${t('hud.jump')} +${event.points}`);audio.effect('jump');}
         if(event.type==='speed')showToast(t('hud.speedUp'));
-        if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(navigator.vibrate)navigator.vibrate(60);}
+        if(event.type==='hit'){world.burst(sim.x);impactTimer=.3;audio.effect('hit');if(save.settings.haptics&&navigator.vibrate)navigator.vibrate(60);}
         if(event.type==='dead'){saveNow();state='crashing';crashElapsed=0;setActive();audio.pause();overlay.hidden=true;break;}
       }
       if(state!=='playing'){accumulator=0;break;}
@@ -182,9 +182,11 @@ async function init(){
   const [response,loadedSave]=await Promise.all([fetch('./locales/en.json'),platform.load()]);if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
-  machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;$('#close-modal').ariaLabel=t('ui.close');
+  machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;hapticsToggle.checked=save.settings.haptics;$('#close-modal').ariaLabel=t('ui.close');
+  $('#sound-label').title=t('settings.sfx');$('#haptics-label').title=t('settings.haptics');
   $('#machine-selector').ariaLabel=t('machine.selection');$('#machine-prev').ariaLabel=t('machine.previous');$('#machine-next').ariaLabel=t('machine.next');
   soundToggle.addEventListener('change',()=>platform.setSetting('sfx',soundToggle.checked));
+  hapticsToggle.addEventListener('change',()=>{platform.setSetting('haptics',hapticsToggle.checked);if(!hapticsToggle.checked&&navigator.vibrate)navigator.vibrate(0);});
   $('#machine-prev').addEventListener('click',()=>browseMachine(-1));$('#machine-next').addEventListener('click',()=>browseMachine(1));
   $('#play').addEventListener('click',()=>startRun());$('#pause-button').addEventListener('click',pause);
   $('#close-modal').addEventListener('click',()=>modal.close());

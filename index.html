@@ -13,11 +13,18 @@
 <body>
   <main class="game-shell">
     <section class="title-screen" aria-labelledby="game-title">
-      <label class="sound-toggle" title="Sound effects and engine">
-        <input id="sound-toggle" type="checkbox" checked>
-        <span aria-hidden="true">♪</span>
-        <span class="sr-only">Sound effects and engine</span>
-      </label>
+      <div class="title-settings">
+        <label class="setting-toggle" id="sound-label" title="Sound effects and engine">
+          <input id="sound-toggle" type="checkbox" checked>
+          <span aria-hidden="true">♪</span>
+          <span class="sr-only" data-i18n="settings.sfx">Sound effects and engine</span>
+        </label>
+        <label class="setting-toggle" id="haptics-label" title="Vibration">
+          <input id="haptics-toggle" type="checkbox" checked>
+          <svg aria-hidden="true" viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="5" width="12" height="22" rx="2"/><path d="M14 23h4M6 10l-2 3 2 3M26 10l2 3-2 3"/></svg>
+          <span class="sr-only" data-i18n="settings.haptics">Vibration</span>
+        </label>
+      </div>
       <div class="high-score"><span data-i18n="ui.highScore">HighScore</span><strong id="high-score">0</strong></div>
       <h1 id="game-title"><span data-i18n="title.lane">LANE</span> <span data-i18n="title.split">SPLIT</span><span class="rush" data-i18n="title.rush">RUSH</span></h1>
       <div class="machine-selector" id="machine-selector" aria-label="Machine selection">

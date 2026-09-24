@@ -2,18 +2,20 @@ import { DEFAULT_MACHINE_ID, isMachineUnlocked, machineById } from '../machines.
 
 const KEY = 'lsr.save.v2';
 export const createDefaultSave = () => ({ schemaVersion: 2, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false, selectedMachine: DEFAULT_MACHINE_ID,
-  settings: { sfx: true } });
+  settings: { sfx: true, haptics: true } });
 export function mergeSave(target, saved) {
   if (saved.schemaVersion !== 2
     || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)
     || typeof saved.tutorialCompleted !== 'boolean'
     || !machineById(saved.selectedMachine)
     || !isMachineUnlocked(saved.selectedMachine, saved.bestScore)
-    || typeof saved.settings?.sfx !== 'boolean') throw new Error('Invalid save');
+    || typeof saved.settings?.sfx !== 'boolean'
+    || typeof saved.settings.haptics !== 'boolean') throw new Error('Invalid save');
   for (const k of ['bestScore','bestDistance','bestCombo']) target[k] = saved[k];
   target.tutorialCompleted = saved.tutorialCompleted;
   target.selectedMachine = saved.selectedMachine;
   target.settings.sfx = saved.settings.sfx;
+  target.settings.haptics = saved.settings.haptics;
   return target;
 }
 export class LocalAdapter {

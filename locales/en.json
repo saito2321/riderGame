@@ -68,5 +68,7 @@
   "error.context": "GRAPHICS INTERRUPTED",
   "error.contextDetail": "Reload to restore the 3D renderer. Your best score has been saved when storage is available.",
   "save.unavailable": "Records are kept for this session. Persistent saving is unavailable.",
-  "save.failed": "Could not save. Your record is kept for this session."
+  "save.failed": "Could not save. Your record is kept for this session.",
+  "settings.sfx": "Sound effects and engine",
+  "settings.haptics": "Vibration"
 }
