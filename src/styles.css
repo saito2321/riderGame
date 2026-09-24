@@ -20,6 +20,7 @@ h1>.rush{display:block;font-size:1.4em;color:#638360;margin-top:6px}
 .machine-name{font-size:18px;letter-spacing:1.5px}.machine-status{min-height:1.2em;font-size:10px;font-weight:900;letter-spacing:1px;color:#4f6f4b}.machine-index{font-size:9px;color:#728178;font-variant-numeric:tabular-nums}
 .machine-selector.locked .machine-preview{background:#b9bcb5;color:#090b0b}.machine-selector.locked .machine-name{color:#272b29}.machine-selector.locked .machine-status{color:#6d3737}
 .actions{width:100%;max-width:320px;display:grid;gap:16px}
+.actions #unlock-machine{min-height:52px;font-size:14px;font-weight:800}.unlock-feedback{margin:0;text-align:center;font-size:12px;font-weight:800;color:#4f6f4b}
 .play-button,.secondary-button{min-height:60px;display:flex;align-items:center;justify-content:center;border:1px solid var(--ink);border-radius:6px;font-size:20px;font-weight:700;padding:14px 22px;color:var(--ink);transition:background .15s,transform .15s}
 .play-button{background:var(--lime);box-shadow:0 4px 0 var(--ink)}
 .play-button:hover{background:#e3fa9c}.play-button:disabled{cursor:not-allowed;background:#c7cbc1;color:#6d756f;box-shadow:0 2px 0 #6d756f}.secondary-button{background:transparent;border-color:#a6b49f}.secondary-button:hover{background:#e7ebdc}

@@ -11,7 +11,7 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-http://localhost:5173 を開いてください。起動時は `LOADING...` を表示し、その描画後にYouTube SDKへ `firstFrameReady()`、タイトル画面を操作できる状態にしてから `gameReady()` を通知します。Three.jsは `src/vendor/` に同梱します。YouTube Playables SDKはゲームコードより先に公式URLから読み込み、ゲームルーム外ではlocalStorageとローカル復活テストへ分岐します。`src/vendor/` が揃っていれば、追加インストールなしで `npm.cmd run dev` を実行できます。
+http://localhost:5173 を開いてください。起動時は `LOADING...` を表示し、その描画後にYouTube SDKへ `firstFrameReady()`、タイトル画面を操作できる状態にしてから `gameReady()` を通知します。Three.jsは `src/vendor/` に同梱します。YouTube Playables SDKはゲームコードより先に公式URLから読み込み、ゲームルーム外ではlocalStorageと広告報酬のローカルテストへ分岐します。`src/vendor/` が揃っていれば、追加インストールなしで `npm.cmd run dev` を実行できます。
 
 ## 遊び方
 
@@ -22,7 +22,7 @@ http://localhost:5173 を開いてください。起動時は `LOADING...` を�
 - 体力は2。衝突で1減り、短時間無敵になります。0で大破演出後に結果画面へ進み、RETRYですぐ再挑戦できます。
 - PAUSE / Escで一時停止し、RESUMEで再開します。ゲームルームではYouTube SDKのPause / Resumeにも従い、通常ブラウザではタブ移動やウィンドウのフォーカス喪失時に停止します。
 - タイトル右上の♪チェックボックスで効果音とエンジン音を、隣の振動ボタンで衝突時の振動をそれぞれON / OFFできます。BGMはありません。動き抑制は行いません。
-- HighScoreが5,000 / 10,000 / 20,000 / 30,000点へ達すると追加マシンが順番に開放されます。タイトルの左右矢印で選択し、ゲーム本編と同じ3Dモデルを回転表示します。未開放マシンは3Dモデルを黒塗りで表示し、その表示中はPlayを無効化します。5,000点ではスクーター、10,000点ではフルカウルのスーパースポーツ、20,000点ではネタ枠の馬、30,000点ではネタ枠のお掃除ロボットを開放します。馬の脚とお掃除ロボットの左右ブラシは走行中に動き、全マシンの性能は共通です。
+- HighScoreが5,000 / 10,000 / 20,000 / 30,000点へ達すると追加マシンが順番に開放されます。タイトルの左右矢印で選択し、ゲーム本編と同じ3Dモデルを回転表示します。未開放マシンは3Dモデルを黒塗りで表示し、その表示中はPlayを無効化します。未開放マシンごとにリワード広告を最後まで視聴しても開放できます。通常ブラウザでは広告を呼ばず、GRANT UNLOCK / CANCELで同じ流れを試せます。5,000点ではスクーター、10,000点ではフルカウルのスーパースポーツ、20,000点ではネタ枠の馬、30,000点ではネタ枠のお掃除ロボットを開放します。馬の脚とお掃除ロボットの左右ブラシは走行中に動き、全マシンの性能は共通です。
 
 ## 実装
 
@@ -41,16 +41,17 @@ http://localhost:5173 を開いてください。起動時は `LOADING...` を�
 
 | 機能 | YouTubeゲームルーム | ゲームルーム外（GitHub Pages / localhost） |
 |---|---|---|
-| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v2` |
+| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v3` |
 | ベストスコア | `ytgame.engagement.sendScore` | LocalStorageへ保存 |
 | Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止と明示的なRESUME |
 | 復活 | `requestRewardedAd('revive-one-health')` | REVIVE (LOCAL) → GRANT REVIVE / CANCEL |
+| マシン開放 | `requestRewardedAd('unlock-<machine-id>')` | UNLOCK (LOCAL TEST) → GRANT UNLOCK / CANCEL |
 | インタースティシャル広告 | ゲームオーバー後に `requestInterstitialAd()` | 呼び出さない |
 | 音声制御 | YouTubeの音声設定と♪チェックボックス | ♪チェックボックスとWeb Audio |
 
 ゲームルームではリワード広告の結果が `true` の場合だけ、ゲームルーム外ではGRANT REVIVEを選んだ場合だけ体力1で復活します。復活は1ラン1回で、成功後に安全地帯とカウントダウンを挟みます。広告の失敗やキャンセル時は結果画面へ戻ります。
 
-Best Score、Best Distance、Best Combo、チュートリアル完了、選択マシン、効果音と振動の設定を保存します。公開前のため旧形式からの移行処理は持ちません。不正データは上書きせずセッション内でプレイできます。ゲームルーム外では `lsr.save.v2` を使います。ゲームルームでは変更後500msを目安に保存し、更新が続いても約5秒以内に保存を要求します。読込・保存・スコア送信の失敗は1秒・2秒・4秒で再試行し、Pause中は再試行を停止します。読込が後から成功した場合はクラウド記録とセッション中の記録を統合し、保存済みBest ScoreをYouTubeへ再送信します。保存制限や失敗時は結果画面に表示します。
+Best Score、Best Distance、Best Combo、チュートリアル完了、選択マシン、広告で開放したマシン、効果音と振動の設定を保存します。公開前のため旧形式からの移行処理は持ちません。不正データは上書きせずセッション内でプレイできます。ゲームルーム外では `lsr.save.v3` を使います。ゲームルームでは変更後500msを目安に保存し、更新が続いても約5秒以内に保存を要求します。読込・保存・スコア送信の失敗は1秒・2秒・4秒で再試行し、Pause中は再試行を停止します。読込が後から成功した場合はクラウド記録とセッション中の記録を統合し、保存済みBest ScoreをYouTubeへ再送信します。保存制限や失敗時は結果画面に表示します。
 
 交通のSeedはラン開始ごとにランダムに生成します。テストではSimulationへSeedを直接注入して、同じSeedと同じ入力による再現性を検証します。
 
@@ -61,7 +62,7 @@ npm.cmd test
 npm.cmd run build
 ```
 
-テストは衝突、Near Miss境界、コンボ、速度、車線変更、保存失敗後の復旧、復活、30/60fpsでの固定更新一致、30分相当のロジック継続を確認します。YouTube SDKはテスト用の模擬実装で確認しており、実機での30分描画試験やPlayables Test Suiteでの確認とは別です。
+テストは衝突、Near Miss境界、コンボ、速度、車線変更、保存失敗後の復旧、広告によるマシン開放、復活、30/60fpsでの固定更新一致、30分相当のロジック継続を確認します。YouTube SDKはテスト用の模擬実装で確認しており、実機での30分描画試験やPlayables Test Suiteでの確認とは別です。
 
 `dist/` にローカルアセットを含む静的配布用フォルダーができます。HTTPサーバーで配信してください。WebGL 2対応ブラウザーが必要です。提出用ZIPはこのコマンドでは作成しません。
 

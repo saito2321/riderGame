@@ -8,7 +8,7 @@ export const MACHINES = Object.freeze([
 
 export const DEFAULT_MACHINE_ID = MACHINES[0].id;
 export const machineById = id => MACHINES.find(machine => machine.id === id);
-export const isMachineUnlocked = (id, bestScore) => {
+export const isMachineUnlocked = (id, bestScore, adUnlockedMachines = []) => {
   const machine = machineById(id);
-  return Boolean(machine && bestScore >= machine.unlockScore);
+  return Boolean(machine && (bestScore >= machine.unlockScore || adUnlockedMachines.includes(id)));
 };

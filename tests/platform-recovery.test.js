@@ -4,8 +4,8 @@ import { PlatformAdapter } from '../src/platform/PlatformAdapter.js';
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const saved = (bestScore, extras = {}) => JSON.stringify({
-  schemaVersion: 2, bestScore, bestDistance: 0, bestCombo: 0,
-  tutorialCompleted: false, selectedMachine: 'street',
+  schemaVersion: 3, bestScore, bestDistance: 0, bestCombo: 0,
+  tutorialCompleted: false, selectedMachine: 'street', adUnlockedMachines: [],
   settings: { sfx: true, haptics: true }, ...extras,
 });
 const sdkWith = ({ loadData = async () => '', saveData = async () => {}, sendScore = async () => {} } = {}) => ({
@@ -141,4 +141,27 @@ test('a load completed during pause updates the UI only after resume', async () 
   p.setPaused(true); finishLoad(saved(40)); await flush();
   assert.equal(p.data.bestScore, 40); assert.deepEqual(notifications, []);
   p.setPaused(false); await flush(); assert.deepEqual(notifications, [40]);
+});
+
+test('rewarded machine unlock needs a true result and survives cloud recovery', async () => {
+  let reads = 0; const writes = [], requested = [];
+  const sdk = sdkWith({
+    loadData: async () => { if (++reads === 1) throw Error('offline'); return saved(0, { adUnlockedMachines: ['scooter'] }); },
+    saveData: async data => writes.push(JSON.parse(data)),
+  });
+  sdk.ads.requestRewardedAd = async id => { requested.push(id); return requested.length === 2; };
+  const p = new PlatformAdapter({ sdk });
+  await p.load();
+  assert.equal(await p.requestMachineUnlock('horse'), false);
+  assert.deepEqual(p.data.adUnlockedMachines, []);
+  assert.equal(await p.requestMachineUnlock('horse'), true);
+  assert.equal(p.unlockMachine('horse'), true);
+  assert.equal(p.setMachine('horse'), true);
+  assert.deepEqual(requested, ['unlock-horse', 'unlock-horse']);
+  assert.equal(writes.length, 0);
+  p.update(1); await flush();
+  assert.deepEqual(p.data.adUnlockedMachines, ['horse', 'scooter']);
+  assert.equal(p.data.selectedMachine, 'horse');
+  await p.save(true);
+  assert.deepEqual(writes.at(-1).adUnlockedMachines, ['horse', 'scooter']);
 });

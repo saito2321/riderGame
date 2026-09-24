@@ -1,5 +1,5 @@
 import { LocalAdapter, createDefaultSave, mergeSave } from './LocalAdapter.js';
-import { isMachineUnlocked } from '../machines.js';
+import { DEFAULT_MACHINE_ID, isMachineUnlocked, machineById } from '../machines.js';
 
 const REVIVE_REWARD_ID = 'revive-one-health';
 const RETRY_DELAYS = [1, 2, 4];
@@ -35,6 +35,7 @@ export class PlatformAdapter {
     this.recoveryListener = null;
     this.recoveryNotificationPending = false;
     this.pendingReward = null;
+    this.pendingMachineReward = null;
     this.pendingAd = null;
   }
   get writable() { return this.local ? this.local.writable : this.cloudWritable; }
@@ -68,9 +69,10 @@ export class PlatformAdapter {
       if (raw) mergeSave(cloud, JSON.parse(raw));
       for (const key of ['bestScore', 'bestDistance', 'bestCombo']) this.data[key] = Math.max(this.data[key], cloud[key]);
       this.data.tutorialCompleted ||= cloud.tutorialCompleted;
+      this.data.adUnlockedMachines = [...new Set([...this.data.adUnlockedMachines, ...cloud.adUnlockedMachines])];
       for (const key of Object.keys(cloud.settings)) if (!this.changedSettings.has(key)) this.data.settings[key] = cloud.settings[key];
       if (!this.machineChanged) this.data.selectedMachine = cloud.selectedMachine;
-      if (!isMachineUnlocked(this.data.selectedMachine, this.data.bestScore)) this.data.selectedMachine = cloud.selectedMachine;
+      if (!isMachineUnlocked(this.data.selectedMachine, this.data.bestScore, this.data.adUnlockedMachines)) this.data.selectedMachine = cloud.selectedMachine;
       if (JSON.stringify(this.data) !== JSON.stringify(cloud)) this.markDirty();
       this.savedBestScore = cloud.bestScore;
       this.loaded = true;
@@ -180,8 +182,13 @@ export class PlatformAdapter {
   }
   setMachine(id) {
     if (this.local) return this.local.setMachine(id);
-    if (!isMachineUnlocked(id,this.data.bestScore) || id === this.data.selectedMachine) return false;
+    if (!isMachineUnlocked(id,this.data.bestScore,this.data.adUnlockedMachines) || id === this.data.selectedMachine) return false;
     this.data.selectedMachine = id; this.machineChanged = true; this.markDirty(); return true;
+  }
+  unlockMachine(id) {
+    if (this.local) return this.local.unlockMachine(id);
+    if (!machineById(id) || id === DEFAULT_MACHINE_ID || isMachineUnlocked(id,this.data.bestScore,this.data.adUnlockedMachines)) return false;
+    this.data.adUnlockedMachines.push(id); this.markDirty(); return true;
   }
   completeTutorial() {
     if (this.local) return this.local.completeTutorial();
@@ -200,6 +207,20 @@ export class PlatformAdapter {
     return request;
   }
   resolveRevive(earned) { this.local?.resolveRevive(earned); }
+  requestMachineUnlock(id) {
+    if (!machineById(id) || id === DEFAULT_MACHINE_ID || isMachineUnlocked(id,this.data.bestScore,this.data.adUnlockedMachines)) return Promise.resolve(false);
+    if (this.local) return this.local.requestMachineUnlock();
+    if (this.pendingMachineReward) return this.pendingMachineReward;
+    const wait = this.pendingAd ?? Promise.resolve();
+    const request = wait.catch(() => {}).then(() => this.sdk.ads.requestRewardedAd(`unlock-${id}`)).then(value => value === true).catch(() => false).finally(() => {
+      this.pendingMachineReward = null;
+      if (this.pendingAd === request) this.pendingAd = null;
+    });
+    this.pendingMachineReward = request;
+    this.pendingAd = request;
+    return request;
+  }
+  resolveMachineUnlock(earned) { this.local?.resolveMachineUnlock(earned); }
   requestInterstitial() {
     if (!this.isPlayables || this.pendingAd) return Promise.resolve(false);
     const request = Promise.resolve().then(() => this.sdk.ads.requestInterstitialAd()).then(() => true).catch(() => false).finally(() => {
