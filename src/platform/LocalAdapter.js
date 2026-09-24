@@ -1,10 +1,10 @@
 import { DEFAULT_MACHINE_ID, isMachineUnlocked, machineById } from '../machines.js';
 
-const KEY = 'lsr.save.v3';
-export const createDefaultSave = () => ({ schemaVersion: 3, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false, selectedMachine: DEFAULT_MACHINE_ID, adUnlockedMachines: [],
+const KEY = 'lsr.save.v1';
+export const createDefaultSave = () => ({ schemaVersion: 1, bestScore: 0, bestDistance: 0, bestCombo: 0, tutorialCompleted: false, selectedMachine: DEFAULT_MACHINE_ID, adUnlockedMachines: [],
   settings: { sfx: true, haptics: true } });
 export function mergeSave(target, saved) {
-  if (saved.schemaVersion !== 3
+  if (saved.schemaVersion !== 1
     || !['bestScore','bestDistance','bestCombo'].every(k => Number.isSafeInteger(saved[k]) && saved[k] >= 0)
     || typeof saved.tutorialCompleted !== 'boolean'
     || !machineById(saved.selectedMachine)

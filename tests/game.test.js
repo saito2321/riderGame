@@ -164,7 +164,7 @@ test('local save persists current settings and reloads best records',()=>{
 test('machines unlock from best score and only unlocked selections persist',()=>{
   assert.deepEqual(MACHINES.map(machine=>machine.unlockScore),[0,5000,10000,20000,30000]);assert.equal(isMachineUnlocked('scooter',4999),false);assert.equal(isMachineUnlocked('scooter',5000),true);
   const storage=memory(),p=new LocalAdapter(storage);p.load();assert.equal(p.setMachine('scooter'),false);p.record({score:10000,distance:0,bestCombo:0});assert.equal(p.setMachine('supersport'),true);assert.equal(p.setMachine('robovac'),false);
-  const reload=new LocalAdapter(storage).load();assert.equal(reload.selectedMachine,'supersport');assert.equal(reload.bestScore,10000);
+  const reload=new LocalAdapter(storage).load();assert.equal(reload.schemaVersion,1);assert.equal(reload.selectedMachine,'supersport');assert.equal(reload.bestScore,10000);
 });
 test('local rewarded unlock persists only a valid machine and permits selecting it',async()=>{
   const storage=memory(),p=new LocalAdapter(storage);p.load();
@@ -177,11 +177,11 @@ test('local rewarded unlock persists only a valid machine and permits selecting 
   const reload=new LocalAdapter(storage).load();
   assert.equal(reload.bestScore,0);assert.deepEqual(reload.adUnlockedMachines,['horse']);assert.equal(reload.selectedMachine,'horse');
   const tampered={...reload,adUnlockedMachines:['horse','horse']};
-  storage.setItem('lsr.save.v3',JSON.stringify(tampered));
+  storage.setItem('lsr.save.v1',JSON.stringify(tampered));
   const invalid=new LocalAdapter(storage);invalid.load();assert.equal(invalid.writable,false);
 });
 test('broken or unavailable save storage never prevents session play or overwrites data',()=>{
-  const storage=memory();storage.setItem('lsr.save.v3','broken');const p=new LocalAdapter(storage);p.load();assert.equal(p.writable,false);p.record({score:500,distance:30,bestCombo:2});p.save(true);assert.equal(p.data.bestScore,500);assert.equal(storage.getItem('lsr.save.v3'),'broken');
+  const storage=memory();storage.setItem('lsr.save.v1','broken');const p=new LocalAdapter(storage);p.load();assert.equal(p.writable,false);p.record({score:500,distance:30,bestCombo:2});p.save(true);assert.equal(p.data.bestScore,500);assert.equal(storage.getItem('lsr.save.v1'),'broken');
   const blocked=new LocalAdapter({getItem(){throw Error();}});assert.doesNotThrow(()=>blocked.load());
 });
 test('revive adapter resolves success only for true and deduplicates requests',async()=>{
@@ -206,7 +206,7 @@ test('save write failure keeps dirty data and retries on next request',()=>{
 test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
   const calls=[];
   const sdk={IN_PLAYABLES_ENV:true,
-    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:3,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,selectedMachine:'street',adUnlockedMachines:[],settings:{sfx:true,haptics:true}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
+    game:{loadData:async()=>{calls.push('load');return JSON.stringify({schemaVersion:1,bestScore:80,bestDistance:40,bestCombo:3,tutorialCompleted:true,selectedMachine:'street',adUnlockedMachines:[],settings:{sfx:true,haptics:true}});},saveData:async data=>{calls.push(['save',JSON.parse(data).bestScore]);},firstFrameReady:()=>calls.push('first'),gameReady:()=>calls.push('ready')},
     engagement:{sendScore:async score=>calls.push(['score',score.value])},
     ads:{requestRewardedAd:async id=>{calls.push(['reward',id]);return true;},requestInterstitialAd:async()=>calls.push('interstitial')},
     system:{isAudioEnabled:()=>false,onAudioEnabledChange:()=>()=>{},onPause:()=>()=>{},onResume:()=>()=>{}}};
@@ -218,7 +218,7 @@ test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
 });
 test('non-playables adapter keeps using localStorage and local revive flow',async()=>{
   const storage=memory(),sdk={IN_PLAYABLES_ENV:false};const p=new PlatformAdapter({sdk,storage});await p.load();
-  p.record({score:45,distance:12,bestCombo:2});p.save(true);assert.equal(JSON.parse(storage.getItem('lsr.save.v3')).bestScore,45);
+  p.record({score:45,distance:12,bestCombo:2});p.save(true);assert.equal(JSON.parse(storage.getItem('lsr.save.v1')).bestScore,45);
   const revive=p.requestRevive();p.resolveRevive(true);assert.equal(await revive,true);assert.equal(await p.requestInterstitial(),false);
 });
 test('failed YouTube load cannot overwrite an unknown cloud save',async()=>{

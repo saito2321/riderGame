@@ -43,7 +43,7 @@ http://localhost:5173 を開いてください。起動時は読み込み画面�
 
 | 機能 | YouTubeゲームルーム | ゲームルーム外（GitHub Pages / localhost） |
 |---|---|---|
-| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v3` |
+| セーブ読込・保存 | `ytgame.game.loadData/saveData` | localStorageの `lsr.save.v1` |
 | ベストスコア | `ytgame.engagement.sendScore` | LocalStorageへ保存 |
 | Pause / Resume | `ytgame.system.onPause/onResume` | Visibility / blurによる停止と明示的なRESUME |
 | 復活 | `requestRewardedAd('revive-one-health')` | REVIVE (LOCAL) → GRANT REVIVE / CANCEL |
@@ -53,7 +53,7 @@ http://localhost:5173 を開いてください。起動時は読み込み画面�
 
 ゲームルームではリワード広告の結果が `true` の場合だけ、ゲームルーム外ではGRANT REVIVEを選んだ場合だけ体力1で復活します。復活は1ラン1回で、成功後に安全地帯とカウントダウンを挟みます。広告の失敗やキャンセル時は結果画面へ戻ります。
 
-Best Score、Best Distance、Best Combo、チュートリアル完了、選択マシン、広告で開放したマシン、効果音と振動の設定を保存します。公開前のため旧形式からの移行処理は持ちません。不正データは上書きせずセッション内でプレイできます。ゲームルーム外では `lsr.save.v3` を使います。ゲームルームでは変更後500msを目安に保存し、更新が続いても約5秒以内に保存を要求します。読込・保存・スコア送信の失敗は1秒・2秒・4秒で再試行し、Pause中は再試行を停止します。読込が後から成功した場合はクラウド記録とセッション中の記録を統合し、保存済みBest ScoreをYouTubeへ再送信します。保存制限や失敗時は結果画面に表示します。
+Best Score、Best Distance、Best Combo、チュートリアル完了、選択マシン、広告で開放したマシン、効果音と振動の設定を保存します。公開前のため旧形式からの移行処理は持ちません。不正データは上書きせずセッション内でプレイできます。ゲームルーム外では `lsr.save.v1` を使います。ゲームルームでは変更後500msを目安に保存し、更新が続いても約5秒以内に保存を要求します。読込・保存・スコア送信の失敗は1秒・2秒・4秒で再試行し、Pause中は再試行を停止します。読込が後から成功した場合はクラウド記録とセッション中の記録を統合し、保存済みBest ScoreをYouTubeへ再送信します。保存制限や失敗時は結果画面に表示します。
 
 交通のSeedはラン開始ごとにランダムに生成します。テストではSimulationへSeedを直接注入して、同じSeedと同じ入力による再現性を検証します。
 

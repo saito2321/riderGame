@@ -20,7 +20,7 @@ const t=key=>strings[key]??key;
 const number=n=>Math.floor(n).toLocaleString(language==='ja'?'ja-JP':'en-US');
 const isPaused=()=>userPaused||platformPaused;
 function stopFrame(){if(frameRequest){cancelAnimationFrame(frameRequest);frameRequest=0;}}
-function scheduleFrame(){if(!frameRequest&&!isPaused())frameRequest=requestAnimationFrame(frame);}
+function scheduleFrame(){if(!frameRequest&&!isPaused()&&state!=='reward')frameRequest=requestAnimationFrame(frame);}
 function waitForPlatformResume(){return platformPaused?new Promise(resolve=>resumeWaiters.push(resolve)):Promise.resolve();}
 function element(tag,text,className){const e=document.createElement(tag);e.textContent=text;if(className)e.className=className;return e;}
 function button(key,callback,secondary=false){const b=element('button',t(key),secondary?'secondary-button':'play-button');b.addEventListener('click',callback);return b;}
@@ -106,14 +106,14 @@ function platformResume(){
 function countdown(){state='countdown';remaining=3.45;accumulator=0;previousTime=0;setActive();renderPanel();scheduleFrame();}
 async function requestRevive(){
   if(state!=='result'||sim.revived)return;
-  state='reward';setActive();audio.pause();const token=++rewardId;renderPanel();
+  state='reward';setActive();audio.pause();stopFrame();previousTime=0;const token=++rewardId;renderPanel();
   const earned=await platform.requestRevive();
   if(token!==rewardId||state!=='reward')return;
   if(isPaused())pendingRewardResult=earned;else finishReward(earned);
 }
 function finishReward(earned){
   if(earned===true&&sim.revive()){audio.unlock();clearEffects();countdown();}
-  else{state='result';renderPanel();}
+  else{state='result';renderPanel();scheduleFrame();}
 }
 async function requestMachineUnlock(){
   if(state!=='title'||platformPaused||platform.pendingMachineReward)return;

@@ -4,7 +4,7 @@ import { PlatformAdapter } from '../src/platform/PlatformAdapter.js';
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const saved = (bestScore, extras = {}) => JSON.stringify({
-  schemaVersion: 3, bestScore, bestDistance: 0, bestCombo: 0,
+  schemaVersion: 1, bestScore, bestDistance: 0, bestCombo: 0,
   tutorialCompleted: false, selectedMachine: 'street', adUnlockedMachines: [],
   settings: { sfx: true, haptics: true }, ...extras,
 });
