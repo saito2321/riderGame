@@ -103,8 +103,10 @@ test('crash recovery never lowers actual speed below 80 km/h',()=>{
 });
 test('lane-change warnings use the per-run score and stop at the lower bound',()=>{
   assert.equal(warningSeconds(10000),2.5);assert.equal(warningSeconds(15000),2.25);assert.equal(warningSeconds(35000),1.25);assert.equal(warningSeconds(999999),1.25);
-  const s=empty();s.random=()=>0;const v=s.spawnVehicle('car',0,-106);Object.assign(v,{change:'queued',plannedDirection:1,toX:3.5});s.score=499;s.scheduleChange(4);assert.equal(v.change,'queued');
-  v.z=-105;s.score=500;s.scheduleChange(4);assert.equal(v.change,'signaling');assert.equal(v.warning,2.5);assert.equal(v.x,0);
+  const s=empty();s.random=()=>0;s.score=499;const timing=s.laneChangeTiming();
+  const v=s.spawnVehicle('car',0,timing.signalZ-1);Object.assign(v,{change:'queued',plannedDirection:1,toX:3.5,signalZ:timing.signalZ,plannedWarning:timing.warning});
+  s.scheduleChange(4);assert.equal(v.change,'queued');
+  v.z=timing.signalZ;s.score=500;s.scheduleChange(4);assert.equal(v.change,'signaling');assert.equal(v.warning,2.5);assert.equal(v.x,0);
   s.score=50000;s.updateVehicle(v,1);assert.equal(v.warning,2.5);assert.equal(v.x,0);
 });
 test('lane-change recheck cancels occupied destination and reuse clears indicators',()=>{
@@ -112,13 +114,12 @@ test('lane-change recheck cancels occupied destination and reuse clears indicato
   s.spawnVehicle('bus',3.5,-80);s.updateVehicle(car,.02);assert.equal(car.change,'straight');assert.equal(car.direction,0);
   car.active=false;const reused=s.spawnVehicle('car',0,-100);assert.equal(reused.changeUsed,false);assert.equal(reused.direction,0);assert.equal(reused.nearStarted,false);
 });
-test('announced lane change completes after approaching during the warning',()=>{
-  for(const startZ of [-100,-80,-60])for(const playerX of [-3.5,0,3.5]){
+test('a safely announced lane change completes after the full warning',()=>{
+  for(const extraDistance of [0,20,40])for(const playerX of [-3.5,0,3.5]){
     const s=empty();s.random=()=>0;s.score=500;s.x=playerX;
-    const car=s.spawnVehicle('car',0,startZ);Object.assign(car,{change:'queued',plannedDirection:1,toX:3.5});s.scheduleChange(4);
+    const timing=s.laneChangeTiming(),startZ=timing.signalZ-extraDistance;
+    const car=s.spawnVehicle('car',0,startZ);Object.assign(car,{change:'queued',plannedDirection:1,toX:3.5,signalZ:startZ,plannedWarning:timing.warning});s.scheduleChange(4);
     assert.equal(car.change,'signaling');const destination=car.toX;
-    // Includes the reported case: from -80 m the old recheck cancels at -55 m,
-    // even with no other traffic and no player movement during the warning.
     for(let i=0;i<299;i++)s.updateVehicle(car,C.step);
     assert.equal(car.change,'signaling');close(car.x,0);
     for(let i=0;i<243;i++)s.updateVehicle(car,C.step);

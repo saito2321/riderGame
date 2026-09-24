@@ -127,10 +127,16 @@ export class Simulation {
     this.spawnVehicle('bike', candidate.x, z); this.gapPassCount = 0;
   }
   laneChangeTiming() {
-    const closingSpeed = Math.max(1, Math.min(C.maxSpeed, this.baseSpeed + C.maxTurbo) - C.vehicleSpeed);
-    const warning = Math.min(warningSeconds(this.score), Math.max(1.25, (155 - 35) / closingSpeed - 1));
-    const signalDistance = Math.max(105, closingSpeed * (warning + 1) + 35);
+    const warning = warningSeconds(this.score);
+    const signalDistance = Math.max(105, this.laneChangeClearance(warning + 2) + C.maxSpeed * C.step + 1);
     return { warning, signalZ: -signalDistance, spawnZ: -Math.max(155, signalDistance + 20) };
+  }
+  laneChangeClearance(seconds) {
+    const closingSpeed = Math.max(1, Math.min(C.maxSpeed, this.baseSpeed + C.maxTurbo) - C.vehicleSpeed);
+    const halfLength = (VEHICLES.car.length + C.bikeLength) / 2;
+    // Leave room for base-speed acceleration, an immediate full turbo boost,
+    // the whole lane-change animation, and clearance before collider overlap.
+    return closingSpeed * seconds + C.baseAcceleration * seconds * seconds / 2 + halfLength + 20;
   }
   spawnWave() {
     const lanes = [-3.5, 0, 3.5], first = Math.floor(this.random() * 3);
@@ -197,10 +203,11 @@ export class Simulation {
     const safe = this.hasSafePath(); Object.assign(car, prior); return safe;
   }
   scheduleChange(dt) {
-    // A lane corridor is reserved at spawn, so quota cars cannot lose the lottery
-    // or miss a short scheduling window. Show the signal once they are visible.
+    // A lane corridor is reserved at spawn. If speed changes make the planned
+    // timing too late, keep the car straight instead of crossing near the bike.
     for (const v of this.vehicles) {
       if (!v.active || v.type === 'rampTruck' || v.change !== 'queued' || v.z < (v.signalZ ?? -105)) continue;
+      if (v.z > -this.laneChangeClearance((v.plannedWarning ?? warningSeconds(this.score)) + 2)) { v.change = 'straight'; v.changeUsed = true; continue; }
       v.change = 'signaling'; v.changeUsed = true; v.warning = v.plannedWarning ?? warningSeconds(this.score);
       v.changeTime = 0; v.direction = v.plannedDirection;
     }
@@ -221,7 +228,7 @@ export class Simulation {
       if (v.change === 'signaling' && v.changeTime >= v.warning) {
         // The player already received the full warning. Restarting the reaction-time
         // path check here incorrectly cancels announced changes as the car approaches.
-        if (!this.changeTrafficIsClear(v, v.toX, 2)) { v.change = 'straight'; v.direction = 0; }
+        if (!this.changeTrafficIsClear(v, v.toX, 2) || v.z > -this.laneChangeClearance(2)) { v.change = 'straight'; v.direction = 0; }
         else { v.change = 'changing'; v.changeTime -= v.warning; }
       }
       if (v.change === 'changing') {
