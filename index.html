@@ -12,7 +12,11 @@
 </head>
 <body>
   <main class="game-shell">
-    <section class="title-screen" aria-labelledby="game-title">
+    <section id="loading-screen" aria-label="Loading game" role="status">
+      <strong>LANE SPLIT RUSH</strong>
+      <span>LOADING...</span>
+    </section>
+    <section class="title-screen" aria-labelledby="game-title" hidden inert>
       <div class="title-settings">
         <label class="setting-toggle" id="sound-label" title="Sound effects and engine">
           <input id="sound-toggle" type="checkbox" checked>

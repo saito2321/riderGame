@@ -10,6 +10,7 @@ const platform=new PlatformAdapter(),sim=new Simulation();
 let save=platform.data,audio;
 const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal'),soundToggle=$('#sound-toggle'),hapticsToggle=$('#haptics-toggle');
 const input=new Input(canvas,()=>sim.x);
+const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
 let strings={},world,machinePreview,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
 let rewardId=0,pendingRewardResult=null,returnFocus=null,seed=randomSeed();
@@ -181,6 +182,7 @@ function frame(timestamp){
   updateHUD();world.render(sim,save.settings,dt);
 }
 async function init(){
+  await nextFrame();await nextFrame();platform.firstFrameReady();
   const [response,loadedSave]=await Promise.all([fetch('./locales/en.json'),platform.load()]);if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
@@ -209,8 +211,12 @@ async function init(){
   canvas.addEventListener('renderer-lost',()=>{pause();saveNow();openError('error.context','error.contextDetail');});
   platform.onAudioEnabledChange(enabled=>{audio.setSystemEnabled(enabled);if(enabled&&state==='playing'&&!isPaused())audio.unlock();});
   platform.onPause(platformPause,platformResume);
-  await new Promise(resolve=>requestAnimationFrame(()=>{platform.firstFrameReady();resolve();}));
-  platform.gameReady();scheduleFrame();
-  import('./game/MachinePreview.js').then(({MachinePreview})=>{machinePreview=new MachinePreview($('#machine-preview-canvas'));renderMachineSelector();machinePreview.setActive(state==='title'&&!platformPaused);}).catch(console.error);
+  let Preview;
+  try{({MachinePreview:Preview}=await import('./game/MachinePreview.js'));}catch(error){console.error(error);}
+  const title=$('.title-screen');title.hidden=false;$('#loading-screen').hidden=true;
+  if(Preview){try{machinePreview=new Preview($('#machine-preview-canvas'));renderMachineSelector();machinePreview.setActive(!platformPaused);}catch(error){console.error(error);}}
+  await nextFrame();await nextFrame();
+  await waitForPlatformResume();
+  title.inert=false;platform.gameReady();scheduleFrame();
 }
 init().catch(error=>{console.error(error);$('#load-error').hidden=false;});
