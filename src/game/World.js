@@ -4,6 +4,7 @@ import { CONFIG as C, VEHICLES } from './config.js';
 import { environment, roadMaterial, createCity, coachworkGeometry, batchParts } from './VisualAssets.js';
 
 import { createBike, createScooter, createSuperSport, createHorse, createRobotVacuum, createTrafficBike } from './BikeModel.js';
+import { RenderQuality } from './RenderQuality.js';
 
 const bodyGeometry=coachworkGeometry();
 const tireGeometry=new THREE.TorusGeometry(1,.24,6,20);
@@ -127,8 +128,9 @@ function vehicle(type, color) {
 export class World {
   constructor(canvas) {
     this.lowPower=(navigator.hardwareConcurrency||4)<=4||(navigator.deviceMemory||8)<=4;
-    this.renderer = new THREE.WebGLRenderer({canvas,antialias:!this.lowPower,alpha:false,powerPreference:'high-performance'});
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio,this.lowPower?1:1.5));
+    this.quality = new RenderQuality(devicePixelRatio);
+    this.renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
+    this.renderer.setPixelRatio(this.quality.ratio);
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.scene=new THREE.Scene(); this.scene.background=new THREE.Color('#9eaeba'); this.scene.fog=new THREE.Fog('#9eaeba',42,240);this.scene.environment=environment();
@@ -156,7 +158,7 @@ export class World {
       const variants={}; for(const type of Object.keys(VEHICLES)) { const g=vehicle(type,['#aebbc8','#802f42','#35657d','#d2a448','#38464f'][slot%5]); g.visible=false; this.scene.add(g); variants[type]=g; } const bike=trafficBike.clone(true);bike.visible=false;this.scene.add(bike);variants.bike=bike;return variants;
     });
     this.particles=Array.from({length:28},()=>{const mesh=new THREE.Mesh(sphereGeometry,material('#ffc369',true));mesh.visible=false;this.scene.add(mesh);return {mesh,life:0,vx:0,vy:0,vz:0};});
-    this.effectTime=0; this.lastTime=0; this.lastDistance=0; this.smokeClock=0; this.crashElapsed=0; this.pixelRatio=Math.min(devicePixelRatio,this.lowPower?1:1.5); this.slowFrames=0;
+    this.effectTime=0; this.lastTime=0; this.lastDistance=0; this.smokeClock=0; this.crashElapsed=0; this.pixelRatio=this.quality.ratio;
     if(new URLSearchParams(location.search).has('renderStats')){
       this.stats=document.createElement('output');this.stats.style.cssText='position:absolute;bottom:12px;left:8px;z-index:4;background:#101c2ddd;color:white;font:10px monospace;padding:6px;pointer-events:none';canvas.parentElement.append(this.stats);this.statsTime=0;this.statsFrames=0;
     }
@@ -240,8 +242,8 @@ export class World {
       if(p){p.life=.7;p.mesh.visible=true;p.mesh.material=material('#80918a');p.mesh.position.set(sim.x,.9,.8);p.mesh.scale.setScalar(.12);p.vx=.15;p.vy=.7;p.vz=1.2;}
     }
     for(const p of this.particles)if(p.life>0){p.life-=dt;p.mesh.visible=p.life>0;p.mesh.position.x+=p.vx*dt;p.mesh.position.y+=p.vy*dt;p.mesh.position.z+=p.vz*dt;}
-    if(frameDt>.035)this.slowFrames++;else this.slowFrames=Math.max(0,this.slowFrames-1);
-    if(this.slowFrames>75&&this.pixelRatio>.7){this.pixelRatio=Math.max(.7,this.pixelRatio-.2);this.renderer.setPixelRatio(this.pixelRatio);this.slowFrames=0;}
+    const nextRatio=this.quality.observe(frameDt);
+    if(nextRatio!==null){this.pixelRatio=nextRatio;this.renderer.setPixelRatio(nextRatio);}
     this.renderer.render(this.scene,this.camera);
     if(this.stats&&frameDt>0&&frameDt<.2){
       this.statsTime+=frameDt;this.statsFrames++;
