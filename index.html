@@ -12,9 +12,9 @@
 </head>
 <body>
   <main class="game-shell">
-    <section id="loading-screen" aria-label="Loading game" role="status">
+    <section id="loading-screen" role="status">
       <strong>LANE SPLIT RUSH</strong>
-      <span>LOADING...</span>
+      <span data-i18n="ui.loading">…</span>
     </section>
     <section class="title-screen" aria-labelledby="game-title" hidden inert>
       <div class="title-settings">
@@ -72,6 +72,6 @@
     </section>
   </main>
   <dialog id="modal" aria-labelledby="modal-title"><div class="modal-top"><span class="eyebrow" id="modal-kicker"></span><button id="close-modal" class="icon-button" aria-label="Close">×</button></div><h2 id="modal-title"></h2><div id="modal-content"></div><button class="play-button modal-action" id="modal-action"></button></dialog>
-  <p class="load-error" id="load-error" hidden>Unable to load. Start the local server, then refresh this page.</p>
+  <p class="load-error" id="load-error" data-i18n="error.load" hidden>Unable to load. Start the local server, then refresh this page.</p>
 </body>
 </html>

@@ -15,6 +15,20 @@ const sdkWith = ({ loadData = async () => '', saveData = async () => {}, sendSco
   ads: {}, system: {},
 });
 
+test('YouTube language selects Japanese only for ja locale tags and falls back to English', async () => {
+  const sdk = sdkWith();
+  const platform = new PlatformAdapter({ sdk });
+  for (const [tag, expected] of [['ja', 'ja'], ['ja-JP', 'ja'], ['en-US', 'en'], ['fr-FR', 'en']]) {
+    sdk.system.getLanguage = async () => tag;
+    assert.equal(await platform.getLanguage(), expected);
+  }
+  sdk.system.getLanguage = async () => { throw Error('unavailable'); };
+  assert.equal(await platform.getLanguage(), 'en');
+  const local = new PlatformAdapter({ sdk: { IN_PLAYABLES_ENV: false }, storage: { getItem: () => null } });
+  assert.equal(await local.getLanguage('?lang=ja'), 'ja');
+  assert.equal(await local.getLanguage('?lang=en'), 'en');
+});
+
 test('failed load retries, merges session progress, and saves only after cloud data is known', async () => {
   let reads = 0; const writes = [], scores = [];
   const sdk = sdkWith({

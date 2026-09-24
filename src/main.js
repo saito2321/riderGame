@@ -11,13 +11,13 @@ let save=platform.data,audio;
 const canvas=$('#game-canvas'),stage=$('#game-stage'),overlay=$('#game-overlay'),modal=$('#modal'),soundToggle=$('#sound-toggle'),hapticsToggle=$('#haptics-toggle');
 const input=new Input(canvas,()=>sim.x);
 const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
-let strings={},world,machinePreview,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
+let strings={},language='en',world,machinePreview,state='title',userPaused=false,platformPaused=false,pauseConfirming=false,remaining=0,crashElapsed=0,previousTime=0,accumulator=0,toastTimer=0,impactTimer=0,recordAtStart=0;
 const randomSeed=()=>{const values=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(values);else values[0]=Math.floor(Math.random()*4294967296);return values[0];};
 let rewardId=0,unlockRequestId=0,pendingRewardResult=null,pendingUnlockResult=null,returnFocus=null,seed=randomSeed();
 let machineIndex=0;
 let frameRequest=0,resumeWaiters=[],bootReady=false;
 const t=key=>strings[key]??key;
-const number=n=>Math.floor(n).toLocaleString('en-US');
+const number=n=>Math.floor(n).toLocaleString(language==='ja'?'ja-JP':'en-US');
 const isPaused=()=>userPaused||platformPaused;
 function stopFrame(){if(frameRequest){cancelAnimationFrame(frameRequest);frameRequest=0;}}
 function scheduleFrame(){if(!frameRequest&&!isPaused())frameRequest=requestAnimationFrame(frame);}
@@ -28,7 +28,7 @@ function renderMachineSelector(){
   const machine=MACHINES[machineIndex],unlocked=isMachineUnlocked(machine.id,save.bestScore,save.adUnlockedMachines);
   const adPending=platform.isPlayables&&!!platform.pendingMachineReward;
   $('#machine-selector').classList.toggle('locked',!unlocked);$('#machine-name').textContent=t(machine.nameKey);machinePreview?.setMachine(machine.id,!unlocked);
-  $('#machine-status').textContent=unlocked?t('machine.selected'):`${t('machine.unlockAt')} ${number(machine.unlockScore)}`;
+  $('#machine-status').textContent=unlocked?t('machine.selected'):t('machine.unlockAt').replace('{score}',number(machine.unlockScore));
   $('#unlock-machine').hidden=unlocked;$('#unlock-machine').disabled=adPending;$('#unlock-machine').textContent=t(adPending?'machine.adPending':platform.isPlayables?'machine.adOffer':'machine.localOffer');
   $('#machine-index').textContent=`${machineIndex+1} / ${MACHINES.length}`;$('#play').disabled=!unlocked;$('#play').textContent=t(unlocked?'ui.play':'machine.locked');
 }
@@ -230,10 +230,17 @@ async function init(){
   platform.onPause(platformPause,platformResume);
   await nextFrame();await nextFrame();platform.firstFrameReady();
   await waitForPlatformResume();
-  const [response,loadedSave]=await Promise.all([fetch('./locales/en.json'),platform.load()]);if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
+  const [requestedLanguage,loadedSave]=await Promise.all([platform.getLanguage(),platform.load()]);
   await waitForPlatformResume();
+  let response=await fetch(`./locales/${requestedLanguage}.json`);
+  language=requestedLanguage;
+  if(!response.ok&&language==='ja'){response=await fetch('./locales/en.json');language='en';}
+  if(!response.ok)throw new Error('Locale load failed');strings=await response.json();save=loadedSave;
+  await waitForPlatformResume();
+  document.documentElement.lang=language;
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
+  $('#loading-screen').ariaLabel=t('ui.loadingGame');stage.ariaLabel=t('ui.game');canvas.ariaLabel=t('input.steer');
   machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;hapticsToggle.checked=save.settings.haptics;$('#close-modal').ariaLabel=t('ui.close');
   platform.setRecoveryListener(cloudBestScore=>{recordAtStart=Math.max(recordAtStart,cloudBestScore);machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;hapticsToggle.checked=save.settings.haptics;if(!stage.hidden)updateHUD();});
   $('#sound-label').title=t('settings.sfx');$('#haptics-label').title=t('settings.haptics');

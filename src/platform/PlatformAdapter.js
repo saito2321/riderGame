@@ -231,6 +231,18 @@ export class PlatformAdapter {
   }
   firstFrameReady() { if (this.isPlayables) this.sdk.game.firstFrameReady(); }
   gameReady() { if (this.isPlayables) this.sdk.game.gameReady(); }
+  async getLanguage(search = globalThis.location?.search ?? '') {
+    if (!this.isPlayables) return new URLSearchParams(search).get('lang') === 'ja' ? 'ja' : 'en';
+    let timeout;
+    try {
+      const tag = await Promise.race([
+        this.sdk.system.getLanguage(),
+        new Promise(resolve => { timeout = setTimeout(() => resolve('en'), 1200); }),
+      ]);
+      return typeof tag === 'string' && /^ja(?:-|$)/i.test(tag) ? 'ja' : 'en';
+    } catch { return 'en'; }
+    finally { clearTimeout(timeout); }
+  }
   isAudioEnabled() { return this.isPlayables ? this.sdk.system.isAudioEnabled() : true; }
   onAudioEnabledChange(callback) {
     return this.isPlayables ? this.sdk.system.onAudioEnabledChange(callback) : () => {};

@@ -11,7 +11,9 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-http://localhost:5173 を開いてください。起動時は `LOADING...` を表示し、その描画後にYouTube SDKへ `firstFrameReady()`、タイトル画面を操作できる状態にしてから `gameReady()` を通知します。Three.jsは `src/vendor/` に同梱します。YouTube Playables SDKはゲームコードより先に公式URLから読み込み、ゲームルーム外ではlocalStorageと広告報酬のローカルテストへ分岐します。`src/vendor/` が揃っていれば、追加インストールなしで `npm.cmd run dev` を実行できます。
+http://localhost:5173 を開いてください。起動時は読み込み画面を表示し、その描画後にYouTube SDKへ `firstFrameReady()`、タイトル画面を操作できる状態にしてから `gameReady()` を通知します。Three.jsは `src/vendor/` に同梱します。YouTube Playables SDKはゲームコードより先に公式URLから読み込み、ゲームルーム外ではlocalStorageと広告報酬のローカルテストへ分岐します。`src/vendor/` が揃っていれば、追加インストールなしで `npm.cmd run dev` を実行できます。
+
+ゲームルームでは `ytgame.system.getLanguage()` の言語設定が `ja` 系なら日本語、それ以外は英語で表示します。言語を取得できない場合も英語に戻します。アプリ名 `LANE SPLIT RUSH` は共通です。通常ブラウザは英語表示で、`http://localhost:5173/?lang=ja` から日本語表示を確認できます。ブラウザの言語設定は参照せず、言語設定をクラウドセーブにも保存しません。
 
 ## 遊び方
 
@@ -66,7 +68,7 @@ npm.cmd run build
 
 `dist/` にローカルアセットを含む静的配布用フォルダーができます。HTTPサーバーで配信してください。WebGL 2対応ブラウザーが必要です。提出用ZIPはこのコマンドでは作成しません。
 
-主要ファイル：`src/main.js`（画面・状態遷移）、`src/game/Simulation.js`（ゲームロジック）、`src/game/World.js`（Three.js描画）、`src/game/Input.js`（入力）、`src/game/config.js`（基本値）、`src/platform/PlatformAdapter.js`（SDK分岐）、`src/platform/LocalAdapter.js`（通常ブラウザ保存）、`locales/en.json`（英語UI）。
+主要ファイル：`src/main.js`（画面・状態遷移）、`src/game/Simulation.js`（ゲームロジック）、`src/game/World.js`（Three.js描画）、`src/game/Input.js`（入力）、`src/game/config.js`（基本値）、`src/platform/PlatformAdapter.js`（SDK分岐）、`src/platform/LocalAdapter.js`（通常ブラウザ保存）、`locales/en.json`・`locales/ja.json`（英語・日本語UI）。
 
 Three.jsのライセンスは `src/vendor/THREE-LICENSE.txt` に同梱しています。
 
