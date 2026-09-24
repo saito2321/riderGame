@@ -2,6 +2,7 @@ import { LocalAdapter, createDefaultSave, mergeSave } from './LocalAdapter.js';
 import { isMachineUnlocked } from '../machines.js';
 
 const REVIVE_REWARD_ID = 'revive-one-health';
+const RETRY_DELAYS = [1, 2, 4];
 
 export class PlatformAdapter {
   constructor({ sdk = globalThis.ytgame, storage } = {}) {
@@ -13,77 +14,178 @@ export class PlatformAdapter {
     this.cloudSaveFailed = false;
     this.loaded = false;
     this.dirty = false;
-    this.lastSave = 0;
+    this.activeTime = 0;
+    this.dirtySince = 0;
+    this.lastChange = 0;
+    this.paused = false;
+    this.pendingLoad = null;
     this.pendingSave = null;
+    this.pendingScore = null;
+    this.loadRetryAt = null;
+    this.saveRetryAt = null;
+    this.scoreRetryAt = null;
+    this.loadRetries = 0;
+    this.saveRetries = 0;
+    this.scoreRetries = 0;
+    this.flushAfterPending = false;
+    this.changedSettings = new Set();
+    this.machineChanged = false;
+    this.savedBestScore = 0;
+    this.lastSentScore = 0;
+    this.recoveryListener = null;
+    this.recoveryNotificationPending = false;
     this.pendingReward = null;
     this.pendingAd = null;
-    this.lastScoreAttempt = 0;
   }
   get writable() { return this.local ? this.local.writable : this.cloudWritable; }
   get saveFailed() { return this.local ? this.local.saveFailed : this.cloudSaveFailed; }
-  async load() {
+  setRecoveryListener(callback) {
+    this.recoveryListener = callback;
+    this.notifyRecovery();
+  }
+  notifyRecovery() {
+    if (this.paused || !this.recoveryNotificationPending || !this.recoveryListener) return;
+    this.recoveryNotificationPending = false;
+    try { this.recoveryListener(this.savedBestScore); }
+    catch (error) { console.error(error); }
+  }
+  scheduleRetry(kind) {
+    const countKey = `${kind}Retries`, atKey = `${kind}RetryAt`;
+    this[atKey] = this[countKey] < RETRY_DELAYS.length ? this.activeTime + RETRY_DELAYS[this[countKey]++] : Infinity;
+  }
+  markDirty() {
+    if (!this.dirty) this.dirtySince = this.activeTime;
+    this.dirty = true;
+    this.lastChange = this.activeTime;
+    if (this.saveRetryAt === Infinity) { this.saveRetries = 0; this.saveRetryAt = null; }
+  }
+  load() {
     if (this.local) { this.data = this.local.load(); return this.data; }
-    try {
-      const raw = await this.sdk.game.loadData();
-      if (raw) mergeSave(this.data, JSON.parse(raw));
+    if (this.pendingLoad) return this.pendingLoad;
+    const recovering = !this.cloudWritable;
+    const request = Promise.resolve().then(() => this.sdk.game.loadData()).then(raw => {
+      const cloud = createDefaultSave();
+      if (raw) mergeSave(cloud, JSON.parse(raw));
+      for (const key of ['bestScore', 'bestDistance', 'bestCombo']) this.data[key] = Math.max(this.data[key], cloud[key]);
+      this.data.tutorialCompleted ||= cloud.tutorialCompleted;
+      for (const key of Object.keys(cloud.settings)) if (!this.changedSettings.has(key)) this.data.settings[key] = cloud.settings[key];
+      if (!this.machineChanged) this.data.selectedMachine = cloud.selectedMachine;
+      if (!isMachineUnlocked(this.data.selectedMachine, this.data.bestScore)) this.data.selectedMachine = cloud.selectedMachine;
+      if (JSON.stringify(this.data) !== JSON.stringify(cloud)) this.markDirty();
+      this.savedBestScore = cloud.bestScore;
       this.loaded = true;
-    } catch {
+      this.cloudWritable = true;
+      this.cloudSaveFailed = false;
+      this.loadRetries = 0;
+      this.loadRetryAt = null;
+      this.scoreRetries = 0;
+      this.scoreRetryAt = null;
+      if (recovering) { this.recoveryNotificationPending = true; this.notifyRecovery(); }
+      if (!this.paused) this.sendBestScore();
+      return this.data;
+    }).catch(() => {
       this.cloudWritable = false;
       this.cloudSaveFailed = true;
-    }
-    return this.data;
+      this.scheduleRetry('load');
+      return this.data;
+    }).finally(() => { this.pendingLoad = null; });
+    this.pendingLoad = request;
+    return request;
   }
   record(sim) {
     if (this.local) return this.local.record(sim);
     for (const [key,value] of [['bestScore',sim.score],['bestDistance',sim.distance],['bestCombo',sim.bestCombo]]) {
       const next = Math.max(this.data[key], Math.floor(value));
-      if (next !== this.data[key]) { this.data[key] = next; this.dirty = true; }
+      if (next !== this.data[key]) { this.data[key] = next; this.markDirty(); }
     }
   }
-  sendBestScore(score = this.data.bestScore) {
-    if (!score || score <= this.lastScoreAttempt || typeof this.sdk.engagement?.sendScore !== 'function') return;
-    this.lastScoreAttempt = score;
-    try { Promise.resolve(this.sdk.engagement.sendScore({ value: score })).catch(() => { if (this.lastScoreAttempt === score) this.lastScoreAttempt = 0; }); }
-    catch { this.lastScoreAttempt = 0; }
+  sendBestScore() {
+    if (this.local || !this.loaded || this.paused || this.pendingScore || !this.savedBestScore || this.savedBestScore <= this.lastSentScore || typeof this.sdk.engagement?.sendScore !== 'function') return this.pendingScore ?? Promise.resolve();
+    const score = this.savedBestScore;
+    let failed = false;
+    const request = Promise.resolve().then(() => this.sdk.engagement.sendScore({ value: score })).then(() => {
+      this.lastSentScore = Math.max(this.lastSentScore, score);
+      this.scoreRetries = 0;
+      this.scoreRetryAt = null;
+    }).catch(() => {
+      failed = true;
+      this.scheduleRetry('score');
+    }).finally(() => {
+      this.pendingScore = null;
+      if (!failed && !this.paused && this.savedBestScore > this.lastSentScore) this.sendBestScore();
+    });
+    this.pendingScore = request;
+    return request;
   }
   save(force = false) {
     if (this.local) return this.local.save(force);
-    const now = Date.now();
     if (!this.loaded || !this.cloudWritable) return this.pendingSave ?? Promise.resolve();
-    if (!this.dirty || (!force && now - this.lastSave < 1000)) return this.pendingSave ?? Promise.resolve();
-    if (this.pendingSave) return this.pendingSave;
+    if (this.pendingSave) { if (force) this.flushAfterPending = true; return this.pendingSave; }
+    if (!this.dirty || (!force && (this.saveRetryAt !== null || this.activeTime - this.lastChange < .5 && this.activeTime - this.dirtySince < 5))) return Promise.resolve();
     const serialized = JSON.stringify(this.data);
     const savedBestScore = this.data.bestScore;
     this.dirty = false;
-    this.lastSave = now;
+    this.flushAfterPending = false;
     let failed = false;
     const request = Promise.resolve().then(() => this.sdk.game.saveData(serialized)).then(() => {
       this.cloudSaveFailed = false;
-      this.sendBestScore(savedBestScore);
+      this.savedBestScore = Math.max(this.savedBestScore, savedBestScore);
+      this.saveRetries = 0;
+      this.saveRetryAt = null;
+      this.scoreRetries = 0;
+      this.scoreRetryAt = null;
+      if (!this.paused) this.sendBestScore();
     }).catch(() => {
       failed = true;
       this.cloudSaveFailed = true;
-      this.dirty = true;
+      this.markDirty();
+      this.scheduleRetry('save');
     }).finally(() => {
       this.pendingSave = null;
-      if (this.dirty && !failed) this.save(true);
+      if (this.dirty && !failed && !this.paused) this.save(true);
     });
     this.pendingSave = request;
     return request;
   }
+  update(dt) {
+    if (this.local || this.paused) return;
+    this.activeTime += Math.max(0, dt);
+    if (!this.loaded) {
+      if (!this.pendingLoad && this.loadRetryAt !== null && this.activeTime >= this.loadRetryAt) this.load();
+      return;
+    }
+    if (this.dirty && !this.pendingSave) {
+      if (this.saveRetryAt !== null) { if (this.activeTime >= this.saveRetryAt) this.save(true); }
+      else this.save(false);
+    }
+    if (!this.pendingScore && this.scoreRetryAt !== null && this.activeTime >= this.scoreRetryAt) this.sendBestScore();
+  }
+  setPaused(paused) {
+    if (this.local || this.paused === paused) return;
+    this.paused = paused;
+    if (!paused) {
+      this.notifyRecovery();
+      if (!this.loaded && this.loadRetryAt !== null) this.loadRetryAt = this.activeTime;
+      if (this.saveRetryAt !== null) { this.saveRetries = 0; this.saveRetryAt = this.activeTime; }
+      if (this.scoreRetryAt !== null) { this.scoreRetries = 0; this.scoreRetryAt = this.activeTime; }
+      if (this.flushAfterPending && this.dirty && !this.pendingSave) this.save(true);
+      this.update(0);
+      if (this.loaded && this.savedBestScore > this.lastSentScore) this.sendBestScore();
+    }
+  }
   setSetting(key, value) {
     if (this.local) return this.local.setSetting(key, value);
-    if (!(key in this.data.settings)) return;
-    this.data.settings[key] = value; this.dirty = true; this.save(true);
+    if (!(key in this.data.settings) || this.data.settings[key] === value) return;
+    this.data.settings[key] = value; this.changedSettings.add(key); this.markDirty();
   }
   setMachine(id) {
     if (this.local) return this.local.setMachine(id);
     if (!isMachineUnlocked(id,this.data.bestScore) || id === this.data.selectedMachine) return false;
-    this.data.selectedMachine = id; this.dirty = true; this.save(true); return true;
+    this.data.selectedMachine = id; this.machineChanged = true; this.markDirty(); return true;
   }
   completeTutorial() {
     if (this.local) return this.local.completeTutorial();
-    this.data.tutorialCompleted = true; this.dirty = true; this.save(true);
+    if (!this.data.tutorialCompleted) { this.data.tutorialCompleted = true; this.markDirty(); }
   }
   requestRevive() {
     if (this.local) return this.local.requestRevive();

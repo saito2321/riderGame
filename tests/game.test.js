@@ -197,7 +197,8 @@ test('playables adapter loads before cloud save and uses YouTube ads',async()=>{
     ads:{requestRewardedAd:async id=>{calls.push(['reward',id]);return true;},requestInterstitialAd:async()=>calls.push('interstitial')},
     system:{isAudioEnabled:()=>false,onAudioEnabledChange:()=>()=>{},onPause:()=>()=>{},onResume:()=>()=>{}}};
   const p=new PlatformAdapter({sdk});p.firstFrameReady();const data=await p.load();assert.equal(data.bestScore,80);assert.equal(p.isAudioEnabled(),false);
-  p.record({score:125,distance:60,bestCombo:5});await p.save(true);assert.deepEqual(calls.slice(0,4),['first','load',['save',125],['score',125]]);
+  p.record({score:125,distance:60,bestCombo:5});await p.save(true);await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(calls.slice(0,5),['first','load',['score',80],['save',125],['score',125]]);
   assert.equal(await p.requestInterstitial(),true);assert.equal(await p.requestRevive(),true);assert.ok(calls.some(call=>Array.isArray(call)&&call[0]==='reward'&&call[1]==='revive-one-health'));
   p.gameReady();assert.equal(calls.at(-1),'ready');
 });

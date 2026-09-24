@@ -69,23 +69,24 @@ function renderPanel(){
 }
 function pause(){
   if(userPaused||platformPaused||!['playing','countdown','reward'].includes(state))return;
-  userPaused=true;pauseConfirming=false;input.setEnabled(false);audio.pause();saveNow();accumulator=0;previousTime=0;stopFrame();renderPanel();
+  userPaused=true;pauseConfirming=false;input.setEnabled(false);audio.pause();saveNow();platform.setPaused(true);accumulator=0;previousTime=0;stopFrame();renderPanel();
 }
 function resume(){
   if(!userPaused)return;
   userPaused=false;pauseConfirming=false;previousTime=0;accumulator=0;
   if(platformPaused){setActive();return;}
+  platform.setPaused(false);
   if(['playing','countdown'].includes(state))audio.unlock();
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
   setActive();renderPanel();scheduleFrame();if(state==='playing')canvas.focus();
 }
 function platformPause(){
   if(platformPaused)return;
-  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio.pause();machinePreview?.setActive(false);saveNow();accumulator=0;previousTime=0;stopFrame();
+  platformPaused=true;document.documentElement.classList.add('platform-paused');input.setEnabled(false);audio.pause();machinePreview?.setActive(false);saveNow();platform.setPaused(true);accumulator=0;previousTime=0;stopFrame();
 }
 function platformResume(){
   if(!platformPaused)return;
-  platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;machinePreview?.setActive(state==='title');
+  platformPaused=false;document.documentElement.classList.remove('platform-paused');previousTime=0;accumulator=0;machinePreview?.setActive(state==='title');platform.setPaused(userPaused);
   const waiters=resumeWaiters;resumeWaiters=[];for(const resolve of waiters)resolve();
   if(userPaused){setActive();return;}
   if(pendingRewardResult!==null){const result=pendingRewardResult;pendingRewardResult=null;finishReward(result);}
@@ -148,6 +149,7 @@ function updateHUD(){
 function frame(timestamp){
   frameRequest=0;if(isPaused())return;scheduleFrame();
   const dt=previousTime?Math.min((timestamp-previousTime)/1000,.1):0;previousTime=timestamp;
+  if(state!=='reward')platform.update(dt);
   if(!world||!['playing','countdown','tutorial','crashing'].includes(state))return;
   if(state==='countdown'){
     const old=Math.ceil(remaining-.45);remaining-=dt;
@@ -183,6 +185,7 @@ async function init(){
   audio=new AudioSystem(save.settings,platform.isAudioEnabled());
   document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n);});
   machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;hapticsToggle.checked=save.settings.haptics;$('#close-modal').ariaLabel=t('ui.close');
+  platform.setRecoveryListener(cloudBestScore=>{recordAtStart=Math.max(recordAtStart,cloudBestScore);machineIndex=Math.max(0,MACHINES.findIndex(machine=>machine.id===save.selectedMachine));updateBest();soundToggle.checked=save.settings.sfx;hapticsToggle.checked=save.settings.haptics;if(!stage.hidden)updateHUD();});
   $('#sound-label').title=t('settings.sfx');$('#haptics-label').title=t('settings.haptics');
   $('#machine-selector').ariaLabel=t('machine.selection');$('#machine-prev').ariaLabel=t('machine.previous');$('#machine-next').ariaLabel=t('machine.next');
   soundToggle.addEventListener('change',()=>platform.setSetting('sfx',soundToggle.checked));
